@@ -1,595 +1,646 @@
 
-import streamlit as st
+import time
 import requests
+import streamlit as st
 from deep_translator import GoogleTranslator, MyMemoryTranslator
 from Bio.Align import PairwiseAligner
 
-st.set_page_config(page_title="BioTarget AI", page_icon="🧬", layout="wide")
+st.set_page_config(
+    page_title="BioTarget AI",
+    page_icon="🧬",
+    layout="wide"
+)
 
-TEXT = {
-    "ko": {
-        "home": "연구실 홈", "search": "단백질 검색", "compare": "단백질 비교",
-        "explore": "탐구 가이드", "language": "언어 선택",
-        "subtitle": "단백질 탐색 및 비교 연구 플랫폼",
-        "welcome": "바이오 연구를 시작해 보세요!",
-        "search_title": "🔎 단백질 검색", "search_help": "단백질 이름 또는 유전자명을 입력하세요.",
-        "search_button": "검색하기", "results": "검색 결과", "no_results": "검색 결과가 없습니다.",
-        "organism": "생물종", "gene": "유전자", "length": "서열 길이",
-        "function": "기능 설명", "sequence": "아미노산 서열", "accession": "UniProt 번호",
-        "original": "원문 기능 설명", "translated": "번역 결과",
-        "translate": "🇰🇷 한국어로 번역", "translate_en": "🌐 영어로 번역",
-        "translation_error": "두 번역 서비스가 모두 실패했어요.",
-        "compare_title": "🧬 단백질 비교 분석",
-        "name_a": "첫 번째 단백질 검색", "name_b": "두 번째 단백질 검색",
-        "search_a": "첫 번째 단백질 찾기", "search_b": "두 번째 단백질 찾기",
-        "choose_a": "첫 번째 단백질 선택", "choose_b": "두 번째 단백질 선택",
-        "compare_button": "선택한 단백질 비교하기",
-        "need_search": "두 단백질을 각각 검색해 주세요.",
-        "similarity": "서열 일치율", "identical": "동일한 아미노산",
-        "score": "정렬 점수", "alignment": "서열 정렬 결과",
-        "interpretation": "결과 해석",
-        "caution": "서열 일치율만으로 단백질의 기능이나 약물 효과가 같다고 판단할 수 없습니다.",
-        "loading": "데이터를 불러오는 중...",
-        "error": "요청에 실패했습니다.",
-        "not_found": "단백질 정보를 찾지 못했어요.",
-        "papers": "📚 관련 연구 논문",
-        "paper_hint": "단백질 관련 논문 검색",
-        "paper_button": "논문 검색하기",
-        "paper_none": "검색 결과가 없습니다. 다른 검색어를 시도해 보세요.",
-        "paper_error": "논문 검색에 실패했어요.",
-        "abstract": "초록",
-        "no_abstract": "초록 정보가 없습니다.",
-        "open_paper": "논문 페이지 열기",
-        "paper_note": "논문 관련성과 연구의 신뢰도는 직접 확인해야 합니다.",
-        "explore_title": "🔬 생화학 탐구 가이드",
-    },
-    "en": {
-        "home": "Research Lab", "search": "Protein Search", "compare": "Protein Comparison",
-        "explore": "Research Guide", "language": "Language",
-        "subtitle": "Protein Discovery and Comparison Platform",
-        "welcome": "Start your biomolecular research!",
-        "search_title": "🔎 Protein Search", "search_help": "Enter a protein name or gene symbol.",
-        "search_button": "Search", "results": "Search Results", "no_results": "No results found.",
-        "organism": "Organism", "gene": "Gene", "length": "Sequence Length",
-        "function": "Function", "sequence": "Amino Acid Sequence", "accession": "UniProt Accession",
-        "original": "Original Function", "translated": "Translation",
-        "translate": "🇰🇷 Translate to Korean", "translate_en": "🌐 Translate to English",
-        "translation_error": "Both translation services failed.",
-        "compare_title": "🧬 Protein Comparison",
-        "name_a": "Search for the first protein", "name_b": "Search for the second protein",
-        "search_a": "Find first protein", "search_b": "Find second protein",
-        "choose_a": "Choose first protein", "choose_b": "Choose second protein",
-        "compare_button": "Compare selected proteins",
-        "need_search": "Search for both proteins first.",
-        "similarity": "Sequence Identity", "identical": "Identical Amino Acids",
-        "score": "Alignment Score", "alignment": "Sequence Alignment",
-        "interpretation": "Interpretation",
-        "caution": "Sequence identity alone cannot establish identical protein function or drug effects.",
-        "loading": "Loading data...",
-        "error": "Request failed.",
-        "not_found": "Protein information not found.",
-        "papers": "📚 Related Research Papers",
-        "paper_hint": "Search papers related to this protein",
-        "paper_button": "Search papers",
-        "paper_none": "No results found. Try another search term.",
-        "paper_error": "Paper search failed.",
-        "abstract": "Abstract",
-        "no_abstract": "No abstract available.",
-        "open_paper": "Open paper page",
-        "paper_note": "Check each paper's relevance and research quality yourself.",
-        "explore_title": "🔬 Biochemistry Research Guide",
-    },
-}
-
-if "language" not in st.session_state:
-    st.session_state.language = "ko"
-
-def t(key):
-    return TEXT[st.session_state.language][key]
-
+# -------------------------
+# 디자인
+# -------------------------
 st.markdown("""
 <style>
-.stApp {background:linear-gradient(180deg,#F2F9FF 0%,#FFFFFF 70%);}
-[data-testid="stSidebar"] {background:#E5F3FF;border-right:1px solid #C7E3FA;}
-h1,h2,h3 {color:#164D7A;}
-div.stButton>button {border-radius:10px;background:#E4F3FF;color:#164D7A;border:1px solid #B5D9F5;font-weight:600;}
-div.stButton>button:hover {background:#D3EAFF;border-color:#5CA8E8;}
-[data-testid="stMetric"] {background:#F0F8FF;border:1px solid #D2E9FA;padding:12px;border-radius:12px;}
+.stApp {
+    background: linear-gradient(180deg, #f2f9ff 0%, #ffffff 100%);
+}
+h1, h2, h3 {
+    color: #174a75;
+}
+div.stButton > button {
+    background-color: #dceeff;
+    color: #174a75;
+    border: 1px solid #b6d9f5;
+    border-radius: 10px;
+    font-weight: 600;
+}
+div.stButton > button:hover {
+    background-color: #c5e3ff;
+    color: #10395b;
+    border-color: #86bff0;
+}
+[data-testid="stMetric"] {
+    background-color: #edf7ff;
+    border: 1px solid #d3eaff;
+    padding: 12px;
+    border-radius: 10px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------------------------
-# UniProt
-# ---------------------------------
-UNIPROT = "https://rest.uniprot.org/uniprotkb"
+st.title("🧬 BioTarget AI")
+st.caption("단백질 정보 · 서열 비교 · 관련 논문 탐색")
 
-def extract_protein(entry):
-    accession = entry.get("primaryAccession", "")
-    description = (
-        entry.get("proteinDescription", {})
-        .get("recommendedName", {})
-        .get("fullName", {})
-        .get("value", "")
+# -------------------------
+# API 설정
+# -------------------------
+UNIPROT_URL = "https://rest.uniprot.org"
+EUROPE_PMC_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest"
+
+HEADERS = {
+    "User-Agent": "BioTargetAI/1.0 educational research app"
+}
+
+
+# -------------------------
+# UniProt 단백질 검색
+# -------------------------
+@st.cache_data(ttl=1800, show_spinner=False)
+def search_proteins(keyword, limit=10):
+    response = requests.get(
+        f"{UNIPROT_URL}/uniprotkb/search",
+        params={
+            "query": keyword,
+            "format": "json",
+            "size": limit,
+            "fields": (
+                "accession,protein_name,gene_names,"
+                "organism_name,length,cc_function"
+            )
+        },
+        headers=HEADERS,
+        timeout=20
     )
+    response.raise_for_status()
+    results = []
 
-    if not description:
-        alternatives = entry.get("proteinDescription", {}).get("alternativeNames", [])
-        if alternatives:
-            description = alternatives[0].get("fullName", {}).get("value", "")
+    for item in response.json().get("results", []):
+        protein_desc = item.get("proteinDescription", {})
+        recommended = protein_desc.get(
+            "recommendedName", {}
+        ).get("fullName", {}).get("value", "")
 
-    genes = entry.get("genes", [])
-    gene = genes[0].get("geneName", {}).get("value", "") if genes else ""
-    organism = entry.get("organism", {}).get("scientificName", "Unknown")
-    seq_data = entry.get("sequence", {})
-    sequence = seq_data.get("value", "")
-    length = seq_data.get("length", len(sequence))
+        if not recommended:
+            names = protein_desc.get("submissionNames", [])
+            if names:
+                recommended = names[0].get(
+                    "fullName", {}
+                ).get("value", "")
 
-    function = ""
-    for comment in entry.get("comments", []):
+        genes = item.get("genes", [])
+        gene_name = ""
+        if genes:
+            gene_name = genes[0].get(
+                "geneName", {}
+            ).get("value", "")
+
+        organism = item.get("organism", {}).get(
+            "scientificName", "Unknown"
+        )
+
+        function_text = ""
+        comments = item.get("comments", [])
+        for comment in comments:
+            if comment.get("commentType") == "FUNCTION":
+                texts = comment.get("texts", [])
+                if texts:
+                    function_text = texts[0].get(
+                        "value", ""
+                    )
+                    break
+
+        results.append({
+            "accession": item.get("primaryAccession", ""),
+            "name": recommended or "이름 정보 없음",
+            "gene": gene_name or "정보 없음",
+            "organism": organism,
+            "length": item.get("sequence", {}).get(
+                "length", 0
+            ),
+            "function": function_text or "기능 설명 없음"
+        })
+
+    return results
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def get_protein_by_accession(accession):
+    response = requests.get(
+        f"{UNIPROT_URL}/uniprotkb/{accession}.json",
+        headers=HEADERS,
+        timeout=20
+    )
+    response.raise_for_status()
+    item = response.json()
+
+    protein_desc = item.get("proteinDescription", {})
+    name = protein_desc.get(
+        "recommendedName", {}
+    ).get("fullName", {}).get("value", "")
+
+    if not name:
+        submissions = protein_desc.get("submissionNames", [])
+        if submissions:
+            name = submissions[0].get(
+                "fullName", {}
+            ).get("value", "")
+
+    genes = item.get("genes", [])
+    gene_name = ""
+    if genes:
+        gene_name = genes[0].get(
+            "geneName", {}
+        ).get("value", "")
+
+    comments = item.get("comments", [])
+    function_text = ""
+    for comment in comments:
         if comment.get("commentType") == "FUNCTION":
-            values = [x.get("value", "") for x in comment.get("texts", []) if x.get("value")]
-            if values:
-                function = " ".join(values)
+            texts = comment.get("texts", [])
+            if texts:
+                function_text = texts[0].get("value", "")
                 break
 
+    sequence = item.get("sequence", {}).get("value", "")
+
     return {
-        "accession": accession,
-        "name": description or accession or "Unknown protein",
-        "gene": gene or "",
-        "organism": organism,
-        "length": length,
-        "function": function or "No function annotation available.",
+        "accession": item.get("primaryAccession", accession),
+        "name": name or "이름 정보 없음",
+        "gene": gene_name or "정보 없음",
+        "organism": item.get("organism", {}).get(
+            "scientificName", "Unknown"
+        ),
+        "length": len(sequence),
+        "function": function_text or "기능 설명 없음",
         "sequence": sequence,
-        "url": f"https://www.uniprot.org/uniprotkb/{accession}",
+        "url": f"https://www.uniprot.org/uniprotkb/{accession}"
     }
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def search_proteins(query):
+
+# -------------------------
+# 번역
+# -------------------------
+@st.cache_data(ttl=86400, show_spinner=False)
+def translate_to_korean(text):
+    """
+    번역 성공 결과를 하루 동안 캐싱한다.
+    MyMemory를 먼저 사용하고 실패할 때 Google을 한 번 시도한다.
+    """
+    if not text or not text.strip():
+        return {
+            "success": False,
+            "text": "",
+            "provider": "",
+            "error": "번역할 문장이 없습니다."
+        }
+
+    text = text.strip()
+
+    # 너무 긴 문장은 번역 서비스의 제한에 걸릴 수 있으므로 제한
+    text = text[:4000]
+
+    errors = []
+
+    # 1. MyMemory: 언어 코드를 en-GB / ko-KR로 지정
+    try:
+        translator = MyMemoryTranslator(
+            source="en-GB",
+            target="ko-KR"
+        )
+        result = translator.translate(text)
+
+        if result and result.strip():
+            return {
+                "success": True,
+                "text": result.strip(),
+                "provider": "MyMemory",
+                "error": ""
+            }
+
+        errors.append("MyMemory: 번역 결과가 비어 있습니다.")
+
+    except Exception as exc:
+        errors.append(f"MyMemory: {type(exc).__name__}: {exc}")
+
+    # 2. Google: 요청 제한에 걸릴 수 있으므로 한 번만 시도
+    try:
+        translator = GoogleTranslator(
+            source="auto",
+            target="ko"
+        )
+        result = translator.translate(text)
+
+        if result and result.strip():
+            return {
+                "success": True,
+                "text": result.strip(),
+                "provider": "Google Translate",
+                "error": ""
+            }
+
+        errors.append("Google Translate: 번역 결과가 비어 있습니다.")
+
+    except Exception as exc:
+        errors.append(f"Google Translate: {type(exc).__name__}: {exc}")
+
+    return {
+        "success": False,
+        "text": "",
+        "provider": "",
+        "error": "\n\n".join(errors)
+    }
+
+
+# -------------------------
+# Europe PMC 논문 검색
+# -------------------------
+@st.cache_data(ttl=1800, show_spinner=False)
+def search_papers(keyword, limit=8):
     response = requests.get(
-        f"{UNIPROT}/search",
-        params={"query": query, "format": "json", "size": 10},
-        timeout=25,
-    )
-    response.raise_for_status()
-    return [extract_protein(x) for x in response.json().get("results", [])]
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_protein(accession):
-    response = requests.get(f"{UNIPROT}/{accession}.json", timeout=25)
-    if response.status_code == 404:
-        return None
-    response.raise_for_status()
-    return extract_protein(response.json())
-
-
-# ---------------------------------
-# 논문 검색: Europe PMC
-# ---------------------------------
-@st.cache_data(ttl=3600, show_spinner=False)
-def search_literature(term):
-    term = (term or "").strip()
-    if not term:
-        return []
-
-    # 단순 검색어로 요청. 필드 문법을 강제하지 않는다.
-    response = requests.get(
-        "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+        f"{EUROPE_PMC_URL}/search",
         params={
-            "query": term,
+            "query": keyword,
             "format": "json",
-            "pageSize": 5,
-            "resultType": "core",
+            "pageSize": limit,
+            "resultType": "core"
         },
-        headers={"User-Agent": "BioTargetAI/1.0"},
-        timeout=30,
+        headers=HEADERS,
+        timeout=25
     )
-
-    if not response.ok:
-        detail = response.text[:300].replace("\n", " ")
-        raise RuntimeError(f"Europe PMC HTTP {response.status_code}: {detail}")
+    response.raise_for_status()
 
     data = response.json()
-    items = data.get("resultList", {}).get("result", [])
     papers = []
 
-    for item in items:
+    for item in data.get("resultList", {}).get("result", []):
+        title = item.get("title", "제목 없음")
+        authors = item.get("authorString", "저자 정보 없음")
+        journal = item.get("journalTitle", "학술지 정보 없음")
+        year = item.get("pubYear", "")
+        abstract = item.get("abstractText", "")
+        pmid = item.get("pmid", "")
         pmcid = item.get("pmcid", "")
         doi = item.get("doi", "")
-        pmid = item.get("pmid", "")
 
         if pmcid:
             url = f"https://europepmc.org/articles/{pmcid}"
-        elif doi:
-            url = f"https://doi.org/{doi}"
         elif pmid:
             url = f"https://europepmc.org/article/MED/{pmid}"
+        elif doi:
+            url = f"https://doi.org/{doi}"
         else:
             url = "https://europepmc.org/"
 
         papers.append({
-            "title": item.get("title", "Untitled paper"),
-            "authors": item.get("authorString", "Authors unavailable"),
-            "year": item.get("pubYear", "Year unavailable"),
-            "journal": item.get("journalTitle", "Journal unavailable"),
-            "abstract": item.get("abstractText", ""),
-            "url": url,
+            "title": title,
+            "authors": authors,
+            "journal": journal,
+            "year": year,
+            "abstract": abstract,
+            "url": url
         })
 
     return papers
 
 
-def render_papers(protein, suffix=""):
-    term = protein["gene"] or protein["name"]
-    st.caption(f"{t('paper_hint')}: {term}")
-
-    if st.button(
-        f"{t('paper_button')} — {term}",
-        key=f"paper_btn_{protein['accession']}_{suffix}",
-    ):
-        try:
-            with st.spinner("논문 검색 중..." if st.session_state.language == "ko" else "Searching papers..."):
-                papers = search_literature(term)
-            st.session_state[f"papers_{protein['accession']}_{suffix}"] = papers
-            st.session_state[f"paper_error_{protein['accession']}_{suffix}"] = ""
-        except Exception as e:
-            st.session_state[f"paper_error_{protein['accession']}_{suffix}"] = str(e)
-            st.session_state[f"papers_{protein['accession']}_{suffix}"] = None
-
-    key = f"papers_{protein['accession']}_{suffix}"
-    error_key = f"paper_error_{protein['accession']}_{suffix}"
-
-    if st.session_state.get(error_key):
-        st.error(f"{t('paper_error')} Details: {st.session_state[error_key]}")
-
-    papers = st.session_state.get(key)
-    if papers is None:
-        return
-    if not papers:
-        st.info(t("paper_none"))
-        return
-
-    for i, paper in enumerate(papers, 1):
-        with st.container(border=True):
-            st.markdown(f"**{i}. {paper['title']}**")
-            st.caption(f"{paper['authors']} · {paper['year']} · {paper['journal']}")
-            if paper["abstract"]:
-                with st.expander(t("abstract")):
-                    st.write(paper["abstract"])
-            else:
-                st.caption(t("no_abstract"))
-            st.markdown(f"[{t('open_paper')}]({paper['url']})")
-
-    st.caption(t("paper_note"))
-
-
-# ---------------------------------
-# 번역: Google 우선, MyMemory 대체
-# ---------------------------------
-def translate_with_fallback(text, target):
-    if not text or not text.strip():
-        return "", "empty"
-
-    errors = []
-
-    # 1차: Google 번역
-    try:
-        result = GoogleTranslator(source="auto", target=target).translate(text[:4500])
-        if result:
-            return result, "Google Translate"
-    except Exception as e:
-        errors.append(f"Google Translate: {type(e).__name__}: {e}")
-
-    # 2차: MyMemory 번역. 단백질 주석은 대체로 영어 원문이다.
-    try:
-        source = "en"
-        result = MyMemoryTranslator(source=source, target=target).translate(text[:4500])
-        if result:
-            return result, "MyMemory"
-    except Exception as e:
-        errors.append(f"MyMemory: {type(e).__name__}: {e}")
-
-    raise RuntimeError(" | ".join(errors))
-
-
-def render_translation(protein, suffix=""):
-    st.markdown(f"**{t('original')}**")
-    st.write(protein["function"])
-
-    target = "ko" if st.session_state.language == "ko" else "en"
-    label = t("translate") if target == "ko" else t("translate_en")
-    key = f"translation_{protein['accession']}_{target}_{suffix}"
-    error_key = key + "_error"
-
-    if st.button(label, key=f"translate_btn_{protein['accession']}_{suffix}"):
-        try:
-            with st.spinner("번역 중..." if target == "ko" else "Translating..."):
-                translated, provider = translate_with_fallback(protein["function"], target)
-            st.session_state[key] = translated
-            st.session_state[key + "_provider"] = provider
-            st.session_state[error_key] = ""
-        except Exception as e:
-            st.session_state[error_key] = str(e)
-
-    if st.session_state.get(error_key):
-        st.warning(f"{t('translation_error')} Details: {st.session_state[error_key]}")
-        st.caption(
-            "번역 서비스의 요청 제한이나 일시적 장애일 수 있어요. 잠시 기다린 뒤 다시 시도해 주세요."
-            if st.session_state.language == "ko"
-            else "This may be caused by service limits or a temporary outage. Wait before retrying."
-        )
-
-    if st.session_state.get(key):
-        st.markdown(f"**{t('translated')}**")
-        provider = st.session_state.get(key + "_provider", "")
-        st.caption(f"Translation provider: {provider}")
-        st.write(st.session_state[key])
-
-
-# ---------------------------------
-# 서열 비교
-# ---------------------------------
-def compare_sequences(seq_a, seq_b):
-    seq_a, seq_b = (seq_a or "").strip().upper(), (seq_b or "").strip().upper()
-    if not seq_a or not seq_b:
-        raise ValueError("Protein sequence is empty.")
-
-    aligner = PairwiseAligner()
-    aligner.mode = "global"
-    aligner.match_score = 2
-    aligner.mismatch_score = -1
-    aligner.open_gap_score = -5
-    aligner.extend_gap_score = -0.5
-
-    alignment = aligner.align(seq_a, seq_b)[0]
-    coords = alignment.coordinates
-    out_a, out_b = [], []
-
-    for i in range(coords.shape[1] - 1):
-        a0, a1 = int(coords[0, i]), int(coords[0, i + 1])
-        b0, b1 = int(coords[1, i]), int(coords[1, i + 1])
-        da, db = a1 - a0, b1 - b0
-
-        if da > 0 and db > 0:
-            out_a.append(seq_a[a0:a1])
-            out_b.append(seq_b[b0:b1])
-        elif da > 0:
-            out_a.append(seq_a[a0:a1])
-            out_b.append("-" * da)
-        elif db > 0:
-            out_a.append("-" * db)
-            out_b.append(seq_b[b0:b1])
-
-    aa, bb = "".join(out_a), "".join(out_b)
-    columns = len(aa)
-    identical = sum(x == y and x != "-" for x, y in zip(aa, bb))
-
-    return {
-        "a": aa, "b": bb, "columns": columns, "identical": identical,
-        "identity": 100 * identical / columns if columns else 0,
-        "score": float(alignment.score),
-    }
-
-
-def show_alignment(a, b, width=60, limit=1200):
-    lines = []
-    for start in range(0, min(len(a), limit), width):
-        aa, bb = a[start:start + width], b[start:start + width]
-        marks = "".join("|" if x == y and x != "-" else " " for x, y in zip(aa, bb))
-        lines.append(f"A {start+1:>5}: {aa}\n           {marks}\nB {start+1:>5}: {bb}\n")
-    if len(a) > limit:
-        lines.append(f"... {len(a) - limit} more alignment columns")
-    return "\n".join(lines)
-
-
-def protein_label(p):
-    return f"{p['name']} | {p['organism']} | {p['accession']}"
-
-
-# ---------------------------------
-# 사이드바 / 공통 헤더
-# ---------------------------------
+# -------------------------
+# 사이드바
+# -------------------------
 with st.sidebar:
-    st.markdown("## 🧬 BioTarget AI")
-    st.caption(t("subtitle"))
-    lang = st.selectbox(
-        t("language"), ["한국어", "English"],
-        index=0 if st.session_state.language == "ko" else 1,
-    )
-    st.session_state.language = "ko" if lang == "한국어" else "en"
+    st.header("🔬 메뉴")
     page = st.radio(
-        "Menu", [t("home"), t("search"), t("compare"), t("explore")],
-        label_visibility="collapsed",
+        "기능 선택",
+        [
+            "단백질 검색",
+            "단백질 서열 비교",
+            "논문 검색"
+        ]
     )
-    st.divider()
-    st.caption("Data: UniProt · Europe PMC")
 
-st.title("🧬 BioTarget AI")
-st.caption(t("subtitle"))
-st.divider()
+    st.markdown("---")
+    st.caption("데이터 출처: UniProt · Europe PMC")
+    st.caption("교육 및 탐색용 도구이며 임상적 판단을 대신하지 않습니다.")
 
 
-# ---------------------------------
-# 홈
-# ---------------------------------
-if page == t("home"):
-    st.header(t("welcome"))
-    st.write(
-        "단백질 검색, 서열 비교, 연구 논문 탐색을 한 곳에서 할 수 있어요."
-        if st.session_state.language == "ko"
-        else "Search proteins, compare sequences, and explore related research papers."
+# -------------------------
+# 논문 검색 UI
+# -------------------------
+def show_paper_search(default_query=""):
+    st.subheader("📚 관련 논문 검색")
+    st.caption("영어 검색어 또는 단백질 이름을 입력하세요.")
+
+    query = st.text_input(
+        "논문 검색어",
+        value=default_query,
+        key=f"paper_query_{page}"
     )
-    c1, c2, c3 = st.columns(3)
-    c1.info("🔎 단백질 검색" if st.session_state.language == "ko" else "🔎 Protein search")
-    c2.info("🧬 서열 비교" if st.session_state.language == "ko" else "🧬 Sequence comparison")
-    c3.info("📚 논문 검색" if st.session_state.language == "ko" else "📚 Paper search")
-    st.warning(t("caution"))
 
-
-# ---------------------------------
-# 단백질 검색
-# ---------------------------------
-elif page == t("search"):
-    st.header(t("search_title"))
-    query = st.text_input(t("search_help"), placeholder="예: TP53, insulin, hemoglobin")
-
-    if st.button(t("search_button"), type="primary", key="single_search"):
-        if query.strip():
-            try:
-                with st.spinner(t("loading")):
-                    st.session_state.single_results = search_proteins(query.strip())
-            except Exception as e:
-                st.error(f"{t('error')} Details: {e}")
-        else:
-            st.warning(t("search_help"))
-
-    results = st.session_state.get("single_results", [])
-    if results:
-        st.subheader(t("results"))
-        for i, p in enumerate(results):
-            with st.expander(protein_label(p)):
-                st.write(f"**{t('organism')}:** {p['organism']}")
-                st.write(f"**{t('gene')}:** {p['gene'] or '—'}")
-                st.write(f"**{t('length')}:** {p['length']} aa")
-                st.write(f"**{t('accession')}:** {p['accession']}")
-                st.markdown(f"[UniProt]({p['url']})")
-
-                render_translation(p, f"single_{i}")
-
-                with st.expander(t("sequence")):
-                    st.code(p["sequence"] or "Sequence not available.")
-
-                st.divider()
-                st.subheader(t("papers"))
-                render_papers(p, f"single_{i}")
-
-    elif "single_results" in st.session_state:
-        st.info(t("no_results"))
-
-
-# ---------------------------------
-# 단백질 비교 + 논문
-# ---------------------------------
-elif page == t("compare"):
-    st.header(t("compare_title"))
-    col_a, col_b = st.columns(2)
-
-    with col_a:
-        query_a = st.text_input(t("name_a"), placeholder="예: TP53", key="query_a")
-        if st.button(t("search_a"), key="search_a_btn"):
-            if query_a.strip():
-                try:
-                    st.session_state.results_a = search_proteins(query_a.strip())
-                except Exception as e:
-                    st.error(f"{t('error')} Details: {e}")
-            else:
-                st.warning(t("need_search"))
-
-    with col_b:
-        query_b = st.text_input(t("name_b"), placeholder="예: BRCA1", key="query_b")
-        if st.button(t("search_b"), key="search_b_btn"):
-            if query_b.strip():
-                try:
-                    st.session_state.results_b = search_proteins(query_b.strip())
-                except Exception as e:
-                    st.error(f"{t('error')} Details: {e}")
-            else:
-                st.warning(t("need_search"))
-
-    ra = st.session_state.get("results_a", [])
-    rb = st.session_state.get("results_b", [])
-    pa = pb = None
-
-    if ra:
-        idx_a = st.selectbox(
-            t("choose_a"), range(len(ra)),
-            format_func=lambda i: protein_label(ra[i]), key="choose_idx_a",
-        )
-        pa = ra[idx_a]
-
-    if rb:
-        idx_b = st.selectbox(
-            t("choose_b"), range(len(rb)),
-            format_func=lambda i: protein_label(rb[i]), key="choose_idx_b",
-        )
-        pb = rb[idx_b]
-
-    if ra and rb and st.button(t("compare_button"), type="primary", key="compare_now"):
-        if pa["accession"] == pb["accession"]:
-            st.warning("같은 단백질을 선택했어요." if st.session_state.language == "ko" else "You selected the same protein twice.")
+    if st.button("논문 찾기", key=f"paper_search_button_{page}"):
+        if not query.strip():
+            st.warning("검색어를 입력해 주세요.")
         else:
             try:
-                full_a = fetch_protein(pa["accession"])
-                full_b = fetch_protein(pb["accession"])
-                if not full_a or not full_b:
-                    st.error(t("not_found"))
+                with st.spinner("Europe PMC에서 논문을 찾는 중..."):
+                    papers = search_papers(query.strip())
+
+                if not papers:
+                    st.info("검색 결과가 없습니다. 다른 검색어로 시도해 보세요.")
                 else:
-                    result = compare_sequences(full_a["sequence"], full_b["sequence"])
-                    st.session_state.comparison = {"a": full_a, "b": full_b, "result": result}
-            except Exception as e:
-                st.error(f"{t('error')} Details: {e}")
-    elif not ra or not rb:
-        st.info(t("need_search"))
+                    st.success(f"논문 {len(papers)}편을 찾았습니다.")
 
-    data = st.session_state.get("comparison")
-    if data:
-        a, b, result = data["a"], data["b"], data["result"]
-        c1, c2 = st.columns(2)
+                    for index, paper in enumerate(papers):
+                        with st.expander(
+                            f"{paper['title']} ({paper['year'] or '연도 미상'})"
+                        ):
+                            st.write(
+                                f"**저자:** {paper['authors']}"
+                            )
+                            st.write(
+                                f"**학술지:** {paper['journal']}"
+                            )
 
-        with c1:
-            st.subheader("A. " + a["name"])
-            st.write(f"{t('organism')}: {a['organism']}")
-            st.write(f"{t('gene')}: {a['gene'] or '—'}")
-            st.write(f"{t('length')}: {a['length']} aa")
-            st.markdown(f"[UniProt]({a['url']})")
+                            st.markdown(
+                                f"[논문 원문 또는 상세 정보 열기]({paper['url']})"
+                            )
 
-        with c2:
-            st.subheader("B. " + b["name"])
-            st.write(f"{t('organism')}: {b['organism']}")
-            st.write(f"{t('gene')}: {b['gene'] or '—'}")
-            st.write(f"{t('length')}: {b['length']} aa")
-            st.markdown(f"[UniProt]({b['url']})")
+                            if paper["abstract"]:
+                                st.markdown("**초록 (Abstract)**")
+                                st.write(paper["abstract"])
 
-        m1, m2, m3 = st.columns(3)
-        m1.metric(t("similarity"), f"{result['identity']:.2f}%")
-        m2.metric(t("identical"), f"{result['identical']} / {result['columns']}")
-        m3.metric(t("score"), f"{result['score']:.1f}")
+                                translation_key = (
+                                    f"abstract_translation_{page}_{index}"
+                                )
 
-        st.subheader(t("alignment"))
-        st.code(show_alignment(result["a"], result["b"]), language="text")
-        st.warning(t("caution"))
+                                if st.button(
+                                    "초록 한국어 번역",
+                                    key=translation_key
+                                ):
+                                    with st.spinner("번역 중..."):
+                                        translated = translate_to_korean(
+                                            paper["abstract"]
+                                        )
 
-        with st.expander(t("function")):
-            st.markdown("#### A. " + a["name"])
-            render_translation(a, "compare_a")
-            st.divider()
-            st.markdown("#### B. " + b["name"])
-            render_translation(b, "compare_b")
+                                    st.session_state[
+                                        f"translated_{translation_key}"
+                                    ] = translated
 
-        st.divider()
-        st.header(t("papers"))
+                                saved = st.session_state.get(
+                                    f"translated_{translation_key}"
+                                )
+
+                                if saved:
+                                    if saved["success"]:
+                                        st.markdown("**한국어 번역**")
+                                        st.write(saved["text"])
+                                        st.caption(
+                                            f"번역 서비스: {saved['provider']}"
+                                        )
+                                    else:
+                                        st.warning(
+                                            "번역에 실패했습니다. 원문 초록은 위에서 확인할 수 있습니다."
+                                        )
+                                        with st.expander("번역 오류 자세히 보기"):
+                                            st.code(saved["error"])
+
+                            else:
+                                st.info("제공된 초록이 없는 논문입니다.")
+
+            except requests.RequestException as exc:
+                st.error("논문 검색 중 통신 오류가 발생했습니다.")
+                st.code(str(exc))
+            except Exception as exc:
+                st.error("논문 검색 중 오류가 발생했습니다.")
+                st.code(f"{type(exc).__name__}: {exc}")
+
+
+# -------------------------
+# 페이지 1: 단백질 검색
+# -------------------------
+if page == "단백질 검색":
+    st.header("🧬 단백질 검색")
+    st.write(
+        "단백질 이름, 유전자 이름 또는 관련 키워드로 UniProt 정보를 검색합니다."
+    )
+
+    keyword = st.text_input(
+        "검색어 입력",
+        placeholder="예: insulin, TP53, hemoglobin",
+        key="protein_keyword"
+    )
+
+    if st.button("단백질 검색", key="protein_search_button"):
+        if not keyword.strip():
+            st.warning("검색어를 입력해 주세요.")
+        else:
+            try:
+                with st.spinner("UniProt 데이터베이스 검색 중..."):
+                    results = search_proteins(keyword.strip())
+
+                st.session_state["protein_results"] = results
+
+                if not results:
+                    st.info("검색 결과가 없습니다. 다른 검색어를 입력해 보세요.")
+
+            except Exception as exc:
+                st.error("단백질 검색에 실패했습니다.")
+                st.code(f"{type(exc).__name__}: {exc}")
+
+    results = st.session_state.get("protein_results", [])
+
+    if results:
+        st.success(f"검색 결과: {len(results)}개")
+
+        for index, protein in enumerate(results):
+            with st.expander(
+                f"{protein['name']} — {protein['accession']}"
+            ):
+                st.write(f"**유전자:** {protein['gene']}")
+                st.write(f"**생물종:** {protein['organism']}")
+                st.write(f"**아미노산 길이:** {protein['length']}")
+                st.markdown(
+                    f"[UniProt 상세 정보](https://www.uniprot.org/uniprotkb/{protein['accession']})"
+                )
+
+                st.markdown("**기능 설명 (영어 원문)**")
+                st.write(protein["function"])
+
+                if protein["function"] != "기능 설명 없음":
+                    translation_key = f"protein_translation_{index}"
+
+                    if st.button(
+                        "기능 설명 한국어 번역",
+                        key=translation_key
+                    ):
+                        with st.spinner("번역 중..."):
+                            translated = translate_to_korean(
+                                protein["function"]
+                            )
+
+                        st.session_state[
+                            f"translated_{translation_key}"
+                        ] = translated
+
+                    saved = st.session_state.get(
+                        f"translated_{translation_key}"
+                    )
+
+                    if saved:
+                        if saved["success"]:
+                            st.markdown("**한국어 번역**")
+                            st.write(saved["text"])
+                            st.caption(
+                                f"번역 서비스: {saved['provider']}"
+                            )
+                        else:
+                            st.warning(
+                                "자동 번역에 실패했습니다. 영어 원문은 그대로 확인할 수 있습니다."
+                            )
+                            with st.expander("번역 오류 자세히 보기"):
+                                st.code(saved["error"])
+
+
+# -------------------------
+# 페이지 2: 단백질 서열 비교
+# -------------------------
+elif page == "단백질 서열 비교":
+    st.header("🧪 단백질 서열 비교")
+    st.write(
+        "UniProt accession을 입력해 두 단백질의 아미노산 서열을 비교합니다."
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        accession1 = st.text_input(
+            "첫 번째 단백질 accession",
+            placeholder="예: P01308",
+            key="accession1"
+        )
+
+    with col2:
+        accession2 = st.text_input(
+            "두 번째 단백질 accession",
+            placeholder="예: P68871",
+            key="accession2"
+        )
+
+    if st.button("서열 비교하기"):
+        if not accession1.strip() or not accession2.strip():
+            st.warning("두 accession을 모두 입력해 주세요.")
+        else:
+            try:
+                with st.spinner("단백질 정보를 가져오는 중..."):
+                    protein1 = get_protein_by_accession(
+                        accession1.strip()
+                    )
+                    protein2 = get_protein_by_accession(
+                        accession2.strip()
+                    )
+
+                seq1 = protein1["sequence"]
+                seq2 = protein2["sequence"]
+
+                if not seq1 or not seq2:
+                    st.error("하나 이상의 단백질 서열을 찾을 수 없습니다.")
+                else:
+                    aligner = PairwiseAligner()
+                    aligner.mode = "global"
+                    aligner.match_score = 2
+                    aligner.mismatch_score = -1
+                    aligner.open_gap_score = -2
+                    aligner.extend_gap_score = -0.5
+
+                    alignment = aligner.align(seq1, seq2)[0]
+                    aligned1, aligned2 = alignment.aligned
+
+                    # 정렬된 구간을 이용해 일치 잔기 수를 계산
+                    identical = 0
+                    aligned_positions = 0
+
+                    for (start1, end1), (start2, end2) in zip(
+                        aligned1, aligned2
+                    ):
+                        length = min(
+                            end1 - start1,
+                            end2 - start2
+                        )
+                        for offset in range(length):
+                            aligned_positions += 1
+                            if (
+                                seq1[start1 + offset]
+                                == seq2[start2 + offset]
+                            ):
+                                identical += 1
+
+                    identity = (
+                        identical / aligned_positions * 100
+                        if aligned_positions
+                        else 0
+                    )
+
+                    st.session_state["comparison"] = {
+                        "protein1": protein1,
+                        "protein2": protein2,
+                        "identity": identity,
+                        "score": alignment.score
+                    }
+
+            except Exception as exc:
+                st.error("단백질 서열 비교에 실패했습니다.")
+                st.code(f"{type(exc).__name__}: {exc}")
+
+    comparison = st.session_state.get("comparison")
+
+    if comparison:
+        p1 = comparison["protein1"]
+        p2 = comparison["protein2"]
+
         left, right = st.columns(2)
+
         with left:
-            st.subheader("A. " + a["name"])
-            render_papers(a, "compare_a")
+            st.subheader("첫 번째 단백질")
+            st.write(f"**이름:** {p1['name']}")
+            st.write(f"**Accession:** {p1['accession']}")
+            st.write(f"**생물종:** {p1['organism']}")
+            st.write(f"**서열 길이:** {p1['length']}")
+
         with right:
-            st.subheader("B. " + b["name"])
-            render_papers(b, "compare_b")
+            st.subheader("두 번째 단백질")
+            st.write(f"**이름:** {p2['name']}")
+            st.write(f"**Accession:** {p2['accession']}")
+            st.write(f"**생물종:** {p2['organism']}")
+            st.write(f"**서열 길이:** {p2['length']}")
+
+        st.metric(
+            "정렬된 구간의 서열 일치율",
+            f"{comparison['identity']:.2f}%"
+        )
+        st.metric(
+            "정렬 점수",
+            f"{comparison['score']:.1f}"
+        )
+
+        st.caption(
+            "서열 일치율은 정렬된 구간에서 계산한 값입니다. "
+            "단백질의 기능적 유사성이나 약물 효과를 직접 입증하는 지표는 아닙니다."
+        )
+
+        st.markdown("### 관련 논문")
+        default_query = f'"{p1["name"]}" OR "{p2["name"]}"'
+        show_paper_search(default_query)
 
 
-# ---------------------------------
-# 탐구 가이드
-# ---------------------------------
-elif page == t("explore"):
-    st.header(t("explore_title"))
-    st.markdown("""
-    - **단백질 서열과 진화:** 생물 사이에서 보존된 아미노산 영역 찾기
-    - **아미노산 치환:** 아미노산의 성질과 단백질 기능의 관계 조사
-    - **질병 관련 단백질:** 연구 논문을 읽고 실험 근거와 한계 확인하기
-    - **신약 표적 연구:** 표적 단백질과 후보 물질에 대한 연구 근거 비교하기
-
-    데이터베이스:
-    - [UniProt](https://www.uniprot.org/)
-    - [Europe PMC](https://europepmc.org/)
-    - [NCBI BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi)
-    - [RCSB Protein Data Bank](https://www.rcsb.org/)
-    """)
+# -------------------------
+# 페이지 3: 논문 검색
+# -------------------------
+elif page == "논문 검색":
+    st.header("📚 생명과학 논문 검색")
+    st.write(
+        "Europe PMC를 이용해 단백질, 유전자, 질병 및 생화학 관련 논문을 찾아보세요."
+    )
+    show_paper_search()
