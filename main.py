@@ -4,15 +4,18 @@ import pandas as pd
 import requests
 from deep_translator import GoogleTranslator
 
+# ==========================================
+# 1. 페이지 설정
+# ==========================================
 st.set_page_config(
     page_title="BioTarget AI | Research Lab",
     page_icon="🧬",
     layout="wide"
 )
 
-# -----------------------------
-# 언어 설정
-# -----------------------------
+# ==========================================
+# 2. 언어 설정
+# ==========================================
 if "language" not in st.session_state:
     st.session_state.language = "ko"
 
@@ -23,7 +26,7 @@ TEXT = {
         "app_name": "BioTarget AI",
         "subtitle": "AI 기반 표적 단백질 분석 연구 플랫폼",
         "language": "🌐 English로 전환",
-        "menu": "RESEARCH MENU",
+        "menu": "연구 메뉴",
         "home": "연구실 홈",
         "search": "단백질 검색",
         "compare": "단백질 비교",
@@ -31,8 +34,8 @@ TEXT = {
         "status": "시스템 상태",
         "online": "UniProt 데이터 연결 준비 완료",
         "hero_tag": "BIOINFORMATICS · PROTEIN RESEARCH",
-        "hero_title": "단백질에서 시작하는\n신약 연구",
-        "hero_desc": "단백질 정보를 검색하고, 특성을 비교하며,\n생명과학 데이터를 탐구해 보세요.",
+        "hero_title": "단백질에서 시작하는 신약 연구",
+        "hero_desc": "단백질 정보를 검색하고 특성을 비교하며 생명과학 데이터를 탐구해 보세요.",
         "search_title": "단백질 데이터 검색",
         "search_desc": "UniProt 데이터베이스에서 표적 단백질을 찾아보세요.",
         "query": "검색할 단백질 또는 유전자",
@@ -67,14 +70,14 @@ TEXT = {
         "idea2": "두 단백질의 서열 차이는 기능 차이와 어떤 관련이 있을까?",
         "idea3": "표적 단백질을 억제하면 세포 신호 전달에 어떤 변화가 생길까?",
         "notice": "교육·탐구용 플랫폼입니다. 분석 결과만으로 약물의 효과나 안전성을 판단할 수 없습니다.",
-        "translating": "데이터를 불러오는 중...",
-        "translate_error": "번역에 실패해 원문을 표시합니다.",
+        "loading": "데이터를 불러오는 중...",
         "no_function": "등록된 기능 설명이 없습니다.",
-        "home_caption": "BIOLOGY × CHEMISTRY × AI",
+        "home_caption": "생명과학 × 화학 × 인공지능",
         "data_source": "데이터 출처: UniProt",
         "choose_first": "먼저 검색어를 입력하고 검색 결과를 선택하세요.",
         "search_error": "데이터를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.",
-        "empty": "검색어를 입력해 주세요."
+        "empty": "검색어를 입력해 주세요.",
+        "translation_notice": "기능 설명은 자동 번역된 내용이며, 정확한 의미는 원문을 함께 확인하세요."
     },
     "en": {
         "app_name": "BioTarget AI",
@@ -88,8 +91,8 @@ TEXT = {
         "status": "SYSTEM STATUS",
         "online": "UniProt data connection ready",
         "hero_tag": "BIOINFORMATICS · PROTEIN RESEARCH",
-        "hero_title": "Drug Discovery\nStarts with Proteins",
-        "hero_desc": "Search protein records, compare properties,\nand explore biological data.",
+        "hero_title": "Drug Discovery Starts with Proteins",
+        "hero_desc": "Search protein records, compare properties, and explore biological data.",
         "search_title": "Protein Data Search",
         "search_desc": "Find target proteins in the UniProt database.",
         "query": "Protein or gene to search",
@@ -100,7 +103,7 @@ TEXT = {
         "gene": "Gene",
         "organism": "Organism",
         "length": "Amino Acid Length",
-        "function": "Function",
+        "function": "Protein Function",
         "accession": "UniProt ID",
         "sequence": "Amino Acid Sequence",
         "open_uniprot": "Open original UniProt record",
@@ -116,7 +119,7 @@ TEXT = {
         "property": "Property",
         "name": "Protein Name",
         "length_diff": "Amino acid length difference",
-        "sequence_note": "Sequence similarity analysis will be added in the next step.",
+        "sequence_note": "Sequence similarity analysis will be added in a future update.",
         "explore_title": "Drug Discovery Lab",
         "explore_desc": "Develop research questions using protein data and biological functions.",
         "idea_title": "Example Research Questions",
@@ -124,14 +127,14 @@ TEXT = {
         "idea2": "How might sequence differences relate to functional differences?",
         "idea3": "How could inhibiting a target protein affect cell signaling?",
         "notice": "For education and research exploration. These results alone cannot establish drug efficacy or safety.",
-        "translating": "Loading data...",
-        "translate_error": "Translation failed; showing the original text.",
+        "loading": "Loading data...",
         "no_function": "No function description available.",
         "home_caption": "BIOLOGY × CHEMISTRY × AI",
         "data_source": "Data source: UniProt",
         "choose_first": "Enter a query and select a search result first.",
         "search_error": "Unable to retrieve data. Please try again later.",
-        "empty": "Please enter a search query."
+        "empty": "Please enter a search query.",
+        "translation_notice": "Function descriptions are machine-translated. Check the original text for precise meaning."
     }
 }
 
@@ -140,37 +143,45 @@ def t(key):
     return TEXT[LANG].get(key, key)
 
 
-# -----------------------------
-# 외부 데이터 번역
-# 단백질 ID와 아미노산 서열은 번역하지 않음
-# -----------------------------
+# ==========================================
+# 3. 번역 기능
+# ==========================================
 @st.cache_data(ttl=86400, show_spinner=False)
 def translate_annotation(text, target_language):
+    """
+    UniProt 기능 설명을 지정된 언어로 번역한다.
+    번역이 실패하면 원문을 반환한다.
+    """
     if not text or not text.strip():
         return text
 
     try:
-        target = "ko" if target_language == "ko" else "en"
-        return GoogleTranslator(
+        translated = GoogleTranslator(
             source="auto",
-            target=target
+            target=target_language
         ).translate(text)
+
+        return translated if translated else text
+
     except Exception:
         return text
 
 
 def display_annotation(text):
+    """
+    한국어 모드: 기능 설명을 한국어로 번역.
+    영어 모드: 기능 설명을 영어로 번역.
+    """
     if not text:
         return t("no_function")
 
-    # UniProt 설명이 영어이면 한국어 모드에서 번역
-    # 한국어 설명은 영어 모드에서 번역
-    return translate_annotation(text, LANG)
+    target_language = "ko" if LANG == "ko" else "en"
+    return translate_annotation(text, target_language)
 
 
-# -----------------------------
-# UniProt API
-# -----------------------------
+# ==========================================
+# 4. UniProt 데이터 검색
+# ==========================================
 def extract_protein(entry):
     description = entry.get("proteinDescription", {})
     recommended = description.get("recommendedName", {})
@@ -192,6 +203,7 @@ def extract_protein(entry):
 
     genes = entry.get("genes", [])
     gene_name = "N/A"
+
     if genes:
         gene_name = genes[0].get(
             "geneName", {}
@@ -206,14 +218,18 @@ def extract_protein(entry):
     length = sequence_data.get("length", len(sequence))
 
     function_text = ""
+
     for comment in entry.get("comments", []):
         if comment.get("commentType") == "FUNCTION":
             texts = []
+
             for item in comment.get("texts", []):
                 value = item.get("value", "")
                 if value:
                     texts.append(value)
+
             function_text = " ".join(texts)
+
             if function_text:
                 break
 
@@ -242,12 +258,15 @@ def search_proteins(query):
         },
         timeout=25
     )
+
     response.raise_for_status()
     data = response.json()
 
     proteins = []
+
     for entry in data.get("results", []):
         protein = extract_protein(entry)
+
         if protein["accession"] and protein["sequence"]:
             proteins.append(protein)
 
@@ -261,18 +280,27 @@ def protein_label(protein):
     )
 
 
-# -----------------------------
-# 연구실 스타일 CSS
-# -----------------------------
+# ==========================================
+# 5. 하늘색 연구실 디자인
+# ==========================================
 st.markdown("""
 <style>
     .stApp {
-        background: linear-gradient(145deg, #f2faff 0%, #e8f5ff 48%, #f8fcff 100%);
+        background: linear-gradient(
+            145deg,
+            #f2faff 0%,
+            #e8f5ff 48%,
+            #f8fcff 100%
+        );
         color: #183b56;
     }
 
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #d9efff 0%, #eaf7ff 100%);
+        background: linear-gradient(
+            180deg,
+            #d9efff 0%,
+            #eaf7ff 100%
+        );
         border-right: 1px solid #c1e0f5;
     }
 
@@ -305,10 +333,9 @@ st.markdown("""
 
     .lab-hero h1 {
         color: #164568;
-        font-size: 2.45rem;
-        line-height: 1.25;
+        font-size: 2.35rem;
+        line-height: 1.35;
         margin: 0.4rem 0 0.8rem 0;
-        white-space: pre-line;
     }
 
     .lab-hero p {
@@ -318,7 +345,7 @@ st.markdown("""
     }
 
     .lab-card {
-        background: rgba(255,255,255,0.88);
+        background: rgba(255,255,255,0.9);
         border: 1px solid #c9e3f4;
         border-radius: 15px;
         padding: 20px;
@@ -340,15 +367,6 @@ st.markdown("""
         font-weight: 750;
     }
 
-    .lab-section {
-        color: #174b70;
-        border-bottom: 1px solid #c4e1f3;
-        padding-bottom: 9px;
-        margin: 1.4rem 0 1rem 0;
-        font-size: 1.35rem;
-        font-weight: 750;
-    }
-
     .lab-note {
         background: #e0f2ff;
         border-left: 4px solid #63a9d8;
@@ -358,7 +376,8 @@ st.markdown("""
         margin: 14px 0;
     }
 
-    .stButton > button {
+    .stButton > button,
+    .stFormSubmitButton > button {
         background: linear-gradient(135deg, #4d9dce, #317fb4);
         color: white;
         border: 1px solid #317fb4;
@@ -368,7 +387,8 @@ st.markdown("""
         transition: 0.2s ease;
     }
 
-    .stButton > button:hover {
+    .stButton > button:hover,
+    .stFormSubmitButton > button:hover {
         background: linear-gradient(135deg, #317fb4, #246b9b);
         color: white;
         border-color: #246b9b;
@@ -383,7 +403,7 @@ st.markdown("""
     }
 
     div[data-testid="stExpander"] {
-        background: rgba(255,255,255,0.78);
+        background: rgba(255,255,255,0.8);
         border: 1px solid #c8e1f1;
         border-radius: 10px;
     }
@@ -399,14 +419,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# -----------------------------
-# 사이드바
-# -----------------------------
+# ==========================================
+# 6. 사이드바
+# ==========================================
 with st.sidebar:
     st.markdown(
-        f"<h2 style='color:#174b70;margin-bottom:0'>{t('app_name')} 🧬</h2>",
+        f"<h2 style='color:#174b70;margin-bottom:0'>"
+        f"{t('app_name')} 🧬</h2>",
         unsafe_allow_html=True
     )
+
     st.caption(t("subtitle"))
     st.divider()
 
@@ -435,16 +457,16 @@ with st.sidebar:
     st.caption("API: UniProt REST")
 
 
-# -----------------------------
-# 홈
-# -----------------------------
+# ==========================================
+# 7. 연구실 홈
+# ==========================================
 if page == t("home"):
     st.markdown(
         f"""
         <div class="lab-hero">
             <div class="lab-topline">{t('hero_tag')}</div>
             <h1>{t('hero_title')}</h1>
-            <p>{t('hero_desc').replace(chr(10), '<br>')}</p>
+            <p>{t('hero_desc')}</p>
         </div>
         """,
         unsafe_allow_html=True
@@ -496,9 +518,9 @@ if page == t("home"):
     )
 
 
-# -----------------------------
-# 단백질 검색
-# -----------------------------
+# ==========================================
+# 8. 단백질 검색
+# ==========================================
 elif page == t("search"):
     st.markdown(f"## 🧬 {t('search_title')}")
     st.write(t("search_desc"))
@@ -508,6 +530,7 @@ elif page == t("search"):
             t("query"),
             placeholder=t("query_hint")
         )
+
         submitted = st.form_submit_button(
             t("search_button"),
             use_container_width=True
@@ -518,10 +541,12 @@ elif page == t("search"):
             st.warning(t("empty"))
         else:
             try:
-                with st.spinner(t("translating")):
+                with st.spinner(t("loading")):
                     results = search_proteins(query.strip())
+
                 st.session_state.single_results = results
                 st.session_state.single_query = query.strip()
+
             except Exception:
                 st.error(t("search_error"))
                 st.session_state.single_results = []
@@ -537,11 +562,13 @@ elif page == t("search"):
                 f'({protein["accession"]})'
             ):
                 c1, c2 = st.columns(2)
+
                 with c1:
                     st.markdown(f"**{t('gene')}:** {protein['gene']}")
                     st.markdown(
                         f"**{t('organism')}:** {protein['organism']}"
                     )
+
                 with c2:
                     st.markdown(
                         f"**{t('length')}:** {protein['length']}"
@@ -551,10 +578,16 @@ elif page == t("search"):
                     )
 
                 st.markdown(f"**{t('function')}**")
-                function_display = display_annotation(
-                    protein["function"]
-                )
-                st.write(function_display)
+
+                # 한국어 모드에서는 영어 기능 설명을 한국어로 번역
+                with st.spinner(t("loading")):
+                    translated_function = display_annotation(
+                        protein["function"]
+                    )
+
+                st.write(translated_function)
+
+                st.caption(t("translation_notice"))
 
                 st.markdown(f"**{t('sequence')}**")
                 st.code(protein["sequence"], language="text")
@@ -568,9 +601,9 @@ elif page == t("search"):
         st.info(t("no_results"))
 
 
-# -----------------------------
-# 단백질 비교
-# -----------------------------
+# ==========================================
+# 9. 단백질 비교
+# ==========================================
 elif page == t("compare"):
     st.markdown(f"## 🔬 {t('compare_title')}")
     st.write(t("compare_desc"))
@@ -583,6 +616,7 @@ elif page == t("compare"):
             value="TP53",
             key="query_a"
         )
+
         if st.button(t("search_a"), use_container_width=True):
             try:
                 st.session_state.results_a = search_proteins(
@@ -598,6 +632,7 @@ elif page == t("compare"):
             value="EGFR",
             key="query_b"
         )
+
         if st.button(t("search_b"), use_container_width=True):
             try:
                 st.session_state.results_b = search_proteins(
@@ -622,24 +657,37 @@ elif page == t("compare"):
 
         st.markdown(f"### {t('comparison')}")
 
+        with st.spinner(t("loading")):
+            function_a = display_annotation(protein_a["function"])
+            function_b = display_annotation(protein_b["function"])
+
         comparison_data = [
             [t("name"), protein_a["name"], protein_b["name"]],
-            [t("accession"), protein_a["accession"], protein_b["accession"]],
-            [t("gene"), protein_a["gene"], protein_b["gene"]],
-            [t("organism"), protein_a["organism"], protein_b["organism"]],
-            [t("length"), protein_a["length"], protein_b["length"]],
             [
-                t("function"),
-                display_annotation(protein_a["function"]),
-                display_annotation(protein_b["function"])
-            ]
+                t("accession"),
+                protein_a["accession"],
+                protein_b["accession"]
+            ],
+            [t("gene"), protein_a["gene"], protein_b["gene"]],
+            [
+                t("organism"),
+                protein_a["organism"],
+                protein_b["organism"]
+            ],
+            [t("length"), protein_a["length"], protein_b["length"]],
+            [t("function"), function_a, function_b]
         ]
 
         df = pd.DataFrame(
             comparison_data,
             columns=[t("property"), "A", "B"]
         )
-        st.dataframe(df, use_container_width=True, hide_index=True)
+
+        st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True
+        )
 
         length_difference = abs(
             protein_a["length"] - protein_b["length"]
@@ -648,35 +696,47 @@ elif page == t("compare"):
         st.markdown(
             f"""
             <div class="lab-card">
-                <div class="lab-card-label">SEQUENCE LENGTH DIFFERENCE</div>
-                <div class="lab-card-value">{length_difference} aa</div>
+                <div class="lab-card-label">
+                    {t('length_diff')}
+                </div>
+                <div class="lab-card-value">
+                    {length_difference} aa
+                </div>
             </div>
             """,
             unsafe_allow_html=True
         )
 
         st.markdown(f"### {t('sequence')}")
+
         seq_a, seq_b = st.columns(2)
 
         with seq_a:
             st.markdown(f"**A: {protein_a['name']}**")
             st.code(protein_a["sequence"], language="text")
-            st.link_button(t("open_uniprot"), protein_a["url"])
+            st.link_button(
+                t("open_uniprot"),
+                protein_a["url"]
+            )
 
         with seq_b:
             st.markdown(f"**B: {protein_b['name']}**")
             st.code(protein_b["sequence"], language="text")
-            st.link_button(t("open_uniprot"), protein_b["url"])
+            st.link_button(
+                t("open_uniprot"),
+                protein_b["url"]
+            )
 
         st.info(t("sequence_note"))
+        st.caption(t("translation_notice"))
 
     else:
         st.info(t("choose_first"))
 
 
-# -----------------------------
-# 신약 연구 탐색
-# -----------------------------
+# ==========================================
+# 10. 신약 연구 탐색
+# ==========================================
 elif page == t("explore"):
     st.markdown(f"## 💊 {t('explore_title')}")
     st.write(t("explore_desc"))
@@ -685,8 +745,12 @@ elif page == t("explore"):
 
     for key in ["idea1", "idea2", "idea3"]:
         st.markdown(
-            f'<div class="lab-card" style="min-height:0;margin-bottom:12px">'
-            f'🧪 {t(key)}</div>',
+            f"""
+            <div class="lab-card"
+                 style="min-height:0;margin-bottom:12px">
+                🧪 {t(key)}
+            </div>
+            """,
             unsafe_allow_html=True
         )
 
@@ -696,13 +760,16 @@ elif page == t("explore"):
     )
 
 
-# -----------------------------
-# 하단 정보
-# -----------------------------
+# ==========================================
+# 11. 하단 정보
+# ==========================================
 st.markdown(
-    f'<div class="small-footer">'
-    f'🧬 BioTarget AI &nbsp; | &nbsp; {t("data_source")} '
-    f'&nbsp; | &nbsp; Educational Research Platform'
-    f'</div>',
+    f"""
+    <div class="small-footer">
+        🧬 BioTarget AI &nbsp; | &nbsp;
+        {t("data_source")} &nbsp; | &nbsp;
+        Educational Research Platform
+    </div>
+    """,
     unsafe_allow_html=True
 )
