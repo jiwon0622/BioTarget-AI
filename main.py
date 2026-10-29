@@ -77,7 +77,8 @@ TEXT = {
         "choose_first": "먼저 검색어를 입력하고 검색 결과를 선택하세요.",
         "search_error": "데이터를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.",
         "empty": "검색어를 입력해 주세요.",
-        "translation_notice": "기능 설명은 자동 번역된 내용이며, 정확한 의미는 원문을 함께 확인하세요."
+        "translation_notice": "기능 설명은 자동 번역된 내용입니다. 정확한 의미는 원문도 함께 확인하세요.",
+        "translation_error": "한국어 번역에 실패했습니다."
     },
     "en": {
         "app_name": "BioTarget AI",
@@ -134,7 +135,8 @@ TEXT = {
         "choose_first": "Enter a query and select a search result first.",
         "search_error": "Unable to retrieve data. Please try again later.",
         "empty": "Please enter a search query.",
-        "translation_notice": "Function descriptions are machine-translated. Check the original text for precise meaning."
+        "translation_notice": "Function descriptions are machine-translated. Check the original text for precise meaning.",
+        "translation_error": "Translation failed."
     }
 }
 
@@ -144,62 +146,84 @@ def t(key):
 
 
 # ==========================================
-# 3. 번역 기능
+# 3. 단백질 기능 설명 번역
 # ==========================================
 @st.cache_data(ttl=86400, show_spinner=False)
 def translate_annotation(text, target_language):
     """
-    UniProt 기능 설명을 지정된 언어로 번역한다.
-    번역이 실패하면 원문을 반환한다.
+    단백질 기능 설명을 한국어 또는 영어로 번역한다.
+    번역 실패 시 오류를 상위 함수로 전달한다.
     """
     if not text or not text.strip():
         return text
 
-    try:
-        translated = GoogleTranslator(
-            source="auto",
-            target=target_language
-        ).translate(text)
+    translator = GoogleTranslator(
+        source="auto",
+        target=target_language
+    )
 
-        return translated if translated else text
+    # 번역 서비스의 입력 길이 제한에 대비해 분할
+    chunk_size = 3000
+    chunks = [
+        text[i:i + chunk_size]
+        for i in range(0, len(text), chunk_size)
+    ]
 
-    except Exception:
-        return text
+    translated_chunks = []
+
+    for chunk in chunks:
+        result = translator.translate(chunk)
+
+        if not result:
+            raise ValueError("번역 결과가 비어 있습니다.")
+
+        translated_chunks.append(result)
+
+    return " ".join(translated_chunks)
 
 
 def display_annotation(text):
-    """
-    한국어 모드: 기능 설명을 한국어로 번역.
-    영어 모드: 기능 설명을 영어로 번역.
-    """
     if not text:
         return t("no_function")
 
     target_language = "ko" if LANG == "ko" else "en"
-    return translate_annotation(text, target_language)
+
+    try:
+        return translate_annotation(text, target_language)
+    except Exception as error:
+        st.warning(
+            f"{t('translation_error')} "
+            f"원문을 표시합니다. 오류: {error}"
+        )
+        return text
 
 
 # ==========================================
-# 4. UniProt 데이터 검색
+# 4. UniProt 단백질 데이터
 # ==========================================
 def extract_protein(entry):
     description = entry.get("proteinDescription", {})
     recommended = description.get("recommendedName", {})
-    protein_name = recommended.get("fullName", {}).get("value")
+
+    protein_name = recommended.get(
+        "fullName", {}
+    ).get("value")
 
     if not protein_name:
         alternatives = description.get("alternativeNames", [])
+
         if alternatives:
-            protein_name = (
-                alternatives[0].get("fullName", {}).get("value")
-            )
+            protein_name = alternatives[0].get(
+                "fullName", {}
+            ).get("value")
 
     if not protein_name:
         submissions = description.get("submissionNames", [])
+
         if submissions:
-            protein_name = (
-                submissions[0].get("fullName", {}).get("value")
-            )
+            protein_name = submissions[0].get(
+                "fullName", {}
+            ).get("value")
 
     genes = entry.get("genes", [])
     gene_name = "N/A"
@@ -225,6 +249,7 @@ def extract_protein(entry):
 
             for item in comment.get("texts", []):
                 value = item.get("value", "")
+
                 if value:
                     texts.append(value)
 
@@ -243,7 +268,10 @@ def extract_protein(entry):
         "function": function_text,
         "accession": accession,
         "sequence": sequence,
-        "url": f"https://www.uniprot.org/uniprotkb/{accession}/entry"
+        "url": (
+            f"https://www.uniprot.org/uniprotkb/"
+            f"{accession}/entry"
+        )
     }
 
 
@@ -334,7 +362,7 @@ st.markdown("""
     .lab-hero h1 {
         color: #164568;
         font-size: 2.35rem;
-        line-height: 1.35;
+        line-height: 1.4;
         margin: 0.4rem 0 0.8rem 0;
     }
 
@@ -420,7 +448,7 @@ st.markdown("""
 
 
 # ==========================================
-# 6. 사이드바
+# 6. 사이드바와 언어 전환
 # ==========================================
 with st.sidebar:
     st.markdown(
@@ -434,7 +462,7 @@ with st.sidebar:
 
     if st.button(t("language"), use_container_width=True):
         st.session_state.language = (
-            "en" if st.session_state.language == "ko" else "ko"
+            "en" if LANG == "ko" else "ko"
         )
         st.rerun()
 
@@ -547,8 +575,8 @@ elif page == t("search"):
                 st.session_state.single_results = results
                 st.session_state.single_query = query.strip()
 
-            except Exception:
-                st.error(t("search_error"))
+            except Exception as error:
+                st.error(f"{t('search_error')} ({error})")
                 st.session_state.single_results = []
 
     results = st.session_state.get("single_results", [])
@@ -561,15 +589,15 @@ elif page == t("search"):
                 f'{protein["name"]} — {protein["organism"]} '
                 f'({protein["accession"]})'
             ):
-                c1, c2 = st.columns(2)
+                col1, col2 = st.columns(2)
 
-                with c1:
+                with col1:
                     st.markdown(f"**{t('gene')}:** {protein['gene']}")
                     st.markdown(
                         f"**{t('organism')}:** {protein['organism']}"
                     )
 
-                with c2:
+                with col2:
                     st.markdown(
                         f"**{t('length')}:** {protein['length']}"
                     )
@@ -579,14 +607,12 @@ elif page == t("search"):
 
                 st.markdown(f"**{t('function')}**")
 
-                # 한국어 모드에서는 영어 기능 설명을 한국어로 번역
                 with st.spinner(t("loading")):
-                    translated_function = display_annotation(
+                    function_text = display_annotation(
                         protein["function"]
                     )
 
-                st.write(translated_function)
-
+                st.write(function_text)
                 st.caption(t("translation_notice"))
 
                 st.markdown(f"**{t('sequence')}**")
@@ -622,8 +648,8 @@ elif page == t("compare"):
                 st.session_state.results_a = search_proteins(
                     query_a.strip()
                 )
-            except Exception:
-                st.error(t("search_error"))
+            except Exception as error:
+                st.error(f"{t('search_error')} ({error})")
                 st.session_state.results_a = []
 
     with col_b:
@@ -638,8 +664,8 @@ elif page == t("compare"):
                 st.session_state.results_b = search_proteins(
                     query_b.strip()
                 )
-            except Exception:
-                st.error(t("search_error"))
+            except Exception as error:
+                st.error(f"{t('search_error')} ({error})")
                 st.session_state.results_b = []
 
     results_a = st.session_state.get("results_a", [])
@@ -696,12 +722,8 @@ elif page == t("compare"):
         st.markdown(
             f"""
             <div class="lab-card">
-                <div class="lab-card-label">
-                    {t('length_diff')}
-                </div>
-                <div class="lab-card-value">
-                    {length_difference} aa
-                </div>
+                <div class="lab-card-label">{t('length_diff')}</div>
+                <div class="lab-card-value">{length_difference} aa</div>
             </div>
             """,
             unsafe_allow_html=True
