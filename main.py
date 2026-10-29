@@ -13,14 +13,14 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==========================================
-# 2. 언어 설정
-# ==========================================
 if "language" not in st.session_state:
     st.session_state.language = "ko"
 
 LANG = st.session_state.language
 
+# ==========================================
+# 2. 화면 문구
+# ==========================================
 TEXT = {
     "ko": {
         "app_name": "BioTarget AI",
@@ -74,11 +74,15 @@ TEXT = {
         "no_function": "등록된 기능 설명이 없습니다.",
         "home_caption": "생명과학 × 화학 × 인공지능",
         "data_source": "데이터 출처: UniProt",
-        "choose_first": "먼저 검색어를 입력하고 검색 결과를 선택하세요.",
+        "choose_first": "먼저 두 단백질을 검색하고 검색 결과를 선택하세요.",
         "search_error": "데이터를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요.",
         "empty": "검색어를 입력해 주세요.",
-        "translation_notice": "기능 설명은 자동 번역된 내용입니다. 정확한 의미는 원문도 함께 확인하세요.",
-        "translation_error": "한국어 번역에 실패했습니다."
+        "translate_button": "🇰🇷 한국어로 번역",
+        "translated_title": "한국어 번역",
+        "translation_hint": "번역이 필요할 때 버튼을 눌러 주세요.",
+        "translation_error": "번역에 실패했습니다.",
+        "translation_notice": "자동 번역이므로 정확한 의미는 UniProt 원문도 함께 확인하세요.",
+        "retry_later": "번역 서비스의 요청 제한일 수 있습니다. 잠시 기다렸다가 다시 시도해 주세요."
     },
     "en": {
         "app_name": "BioTarget AI",
@@ -132,11 +136,15 @@ TEXT = {
         "no_function": "No function description available.",
         "home_caption": "BIOLOGY × CHEMISTRY × AI",
         "data_source": "Data source: UniProt",
-        "choose_first": "Enter a query and select a search result first.",
+        "choose_first": "Search for both proteins and select the results first.",
         "search_error": "Unable to retrieve data. Please try again later.",
         "empty": "Please enter a search query.",
-        "translation_notice": "Function descriptions are machine-translated. Check the original text for precise meaning.",
-        "translation_error": "Translation failed."
+        "translate_button": "🌐 Translate to English",
+        "translated_title": "English Translation",
+        "translation_hint": "Click the button when you need a translation.",
+        "translation_error": "Translation failed.",
+        "translation_notice": "Machine-translated text may be inaccurate. Check the original UniProt record.",
+        "retry_later": "The translation service may be rate-limited. Wait a while and try again."
     }
 }
 
@@ -146,14 +154,10 @@ def t(key):
 
 
 # ==========================================
-# 3. 단백질 기능 설명 번역
+# 3. 번역 기능: 버튼을 눌렀을 때만 실행
 # ==========================================
 @st.cache_data(ttl=86400, show_spinner=False)
 def translate_annotation(text, target_language):
-    """
-    단백질 기능 설명을 한국어 또는 영어로 번역한다.
-    번역 실패 시 오류를 상위 함수로 전달한다.
-    """
     if not text or not text.strip():
         return text
 
@@ -162,44 +166,86 @@ def translate_annotation(text, target_language):
         target=target_language
     )
 
-    # 번역 서비스의 입력 길이 제한에 대비해 분할
-    chunk_size = 3000
+    # 긴 설명은 나누어 일괄 번역 요청
+    chunk_size = 3500
     chunks = [
         text[i:i + chunk_size]
         for i in range(0, len(text), chunk_size)
     ]
 
-    translated_chunks = []
-
-    for chunk in chunks:
-        result = translator.translate(chunk)
-
+    if len(chunks) == 1:
+        result = translator.translate(chunks[0])
         if not result:
             raise ValueError("번역 결과가 비어 있습니다.")
+        return result
 
-        translated_chunks.append(result)
+    results = translator.translate_batch(chunks)
 
-    return " ".join(translated_chunks)
+    if not results or len(results) != len(chunks):
+        raise ValueError("일부 번역 결과를 받지 못했습니다.")
+
+    if any(not result for result in results):
+        raise ValueError("일부 번역 결과가 비어 있습니다.")
+
+    return " ".join(results)
 
 
-def display_annotation(text):
-    if not text:
-        return t("no_function")
+def translation_state_key(protein):
+    target = "ko" if LANG == "ko" else "en"
+    return f"translation_{protein['accession']}_{target}"
 
-    target_language = "ko" if LANG == "ko" else "en"
 
-    try:
-        return translate_annotation(text, target_language)
-    except Exception as error:
-        st.warning(
-            f"{t('translation_error')} "
-            f"원문을 표시합니다. 오류: {error}"
-        )
-        return text
+def render_function_translation(protein):
+    """
+    원문은 항상 표시하고, 버튼을 눌렀을 때만 번역한다.
+    번역 결과는 세션에 저장해 화면 갱신 후에도 유지한다.
+    """
+    original = protein.get("function", "")
+    key = translation_state_key(protein)
+
+    st.markdown(f"**{t('function')}**")
+
+    if original:
+        st.write(original)
+    else:
+        st.info(t("no_function"))
+        return
+
+    st.caption(t("translation_hint"))
+
+    if st.button(
+        t("translate_button"),
+        key=f"translate_button_{key}",
+        use_container_width=False
+    ):
+        try:
+            target = "ko" if LANG == "ko" else "en"
+
+            with st.spinner(t("loading")):
+                translated = translate_annotation(original, target)
+
+            st.session_state[key] = translated
+            st.session_state[f"{key}_error"] = None
+
+        except Exception as error:
+            st.session_state[f"{key}_error"] = str(error)
+
+    error_message = st.session_state.get(f"{key}_error")
+
+    if error_message:
+        st.error(f"{t('translation_error')} {error_message}")
+        st.info(t("retry_later"))
+
+    translated = st.session_state.get(key)
+
+    if translated:
+        st.markdown(f"**{t('translated_title')}**")
+        st.success(translated)
+        st.caption(t("translation_notice"))
 
 
 # ==========================================
-# 4. UniProt 단백질 데이터
+# 4. UniProt 데이터 검색
 # ==========================================
 def extract_protein(entry):
     description = entry.get("proteinDescription", {})
@@ -249,7 +295,6 @@ def extract_protein(entry):
 
             for item in comment.get("texts", []):
                 value = item.get("value", "")
-
                 if value:
                     texts.append(value)
 
@@ -309,26 +354,19 @@ def protein_label(protein):
 
 
 # ==========================================
-# 5. 하늘색 연구실 디자인
+# 5. 연구실 디자인
 # ==========================================
 st.markdown("""
 <style>
     .stApp {
         background: linear-gradient(
-            145deg,
-            #f2faff 0%,
-            #e8f5ff 48%,
-            #f8fcff 100%
+            145deg, #f2faff 0%, #e8f5ff 48%, #f8fcff 100%
         );
         color: #183b56;
     }
 
     [data-testid="stSidebar"] {
-        background: linear-gradient(
-            180deg,
-            #d9efff 0%,
-            #eaf7ff 100%
-        );
+        background: linear-gradient(180deg, #d9efff 0%, #eaf7ff 100%);
         border-right: 1px solid #c1e0f5;
     }
 
@@ -448,7 +486,7 @@ st.markdown("""
 
 
 # ==========================================
-# 6. 사이드바와 언어 전환
+# 6. 사이드바
 # ==========================================
 with st.sidebar:
     st.markdown(
@@ -470,12 +508,7 @@ with st.sidebar:
 
     page = st.radio(
         "Navigation",
-        [
-            t("home"),
-            t("search"),
-            t("compare"),
-            t("explore")
-        ],
+        [t("home"), t("search"), t("compare"), t("explore")],
         label_visibility="collapsed"
     )
 
@@ -589,15 +622,15 @@ elif page == t("search"):
                 f'{protein["name"]} — {protein["organism"]} '
                 f'({protein["accession"]})'
             ):
-                col1, col2 = st.columns(2)
+                c1, c2 = st.columns(2)
 
-                with col1:
+                with c1:
                     st.markdown(f"**{t('gene')}:** {protein['gene']}")
                     st.markdown(
                         f"**{t('organism')}:** {protein['organism']}"
                     )
 
-                with col2:
+                with c2:
                     st.markdown(
                         f"**{t('length')}:** {protein['length']}"
                     )
@@ -605,15 +638,7 @@ elif page == t("search"):
                         f"**{t('accession')}:** {protein['accession']}"
                     )
 
-                st.markdown(f"**{t('function')}**")
-
-                with st.spinner(t("loading")):
-                    function_text = display_annotation(
-                        protein["function"]
-                    )
-
-                st.write(function_text)
-                st.caption(t("translation_notice"))
+                render_function_translation(protein)
 
                 st.markdown(f"**{t('sequence')}**")
                 st.code(protein["sequence"], language="text")
@@ -683,10 +708,6 @@ elif page == t("compare"):
 
         st.markdown(f"### {t('comparison')}")
 
-        with st.spinner(t("loading")):
-            function_a = display_annotation(protein_a["function"])
-            function_b = display_annotation(protein_b["function"])
-
         comparison_data = [
             [t("name"), protein_a["name"], protein_b["name"]],
             [
@@ -700,8 +721,7 @@ elif page == t("compare"):
                 protein_a["organism"],
                 protein_b["organism"]
             ],
-            [t("length"), protein_a["length"], protein_b["length"]],
-            [t("function"), function_a, function_b]
+            [t("length"), protein_a["length"], protein_b["length"]]
         ]
 
         df = pd.DataFrame(
@@ -729,6 +749,18 @@ elif page == t("compare"):
             unsafe_allow_html=True
         )
 
+        st.markdown(f"### {t('function')}")
+
+        col_func_a, col_func_b = st.columns(2)
+
+        with col_func_a:
+            st.markdown(f"#### A: {protein_a['name']}")
+            render_function_translation(protein_a)
+
+        with col_func_b:
+            st.markdown(f"#### B: {protein_b['name']}")
+            render_function_translation(protein_b)
+
         st.markdown(f"### {t('sequence')}")
 
         seq_a, seq_b = st.columns(2)
@@ -750,7 +782,6 @@ elif page == t("compare"):
             )
 
         st.info(t("sequence_note"))
-        st.caption(t("translation_notice"))
 
     else:
         st.info(t("choose_first"))
