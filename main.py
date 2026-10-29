@@ -22,7 +22,7 @@ HEADERS = {
 }
 
 # =========================================================
-# 기존 디자인 복구: 하늘색 연구실 테마
+# 디자인
 # =========================================================
 st.markdown("""
 <style>
@@ -166,7 +166,7 @@ hr {
 
 
 # =========================================================
-# 데이터 요청 함수
+# UniProt 단백질 검색
 # =========================================================
 @st.cache_data(ttl=1800, show_spinner=False)
 def search_proteins(keyword, limit=10):
@@ -216,20 +216,26 @@ def search_proteins(keyword, limit=10):
                     function = texts[0].get("value", "")
                     break
 
+        accession = item.get("primaryAccession", "")
+
         results.append({
-            "accession": item.get("primaryAccession", ""),
+            "accession": accession,
             "name": name or "이름 정보 없음",
             "gene": gene or "정보 없음",
             "organism": item.get("organism", {}).get(
                 "scientificName", "정보 없음"
             ),
             "function": function or "기능 설명 없음",
-            "length": item.get("sequence", {}).get("length", 0)
+            "length": item.get("sequence", {}).get("length", 0),
+            "url": f"https://www.uniprot.org/uniprotkb/{accession}"
         })
 
     return results
 
 
+# =========================================================
+# UniProt accession으로 단백질 상세 조회
+# =========================================================
 @st.cache_data(ttl=1800, show_spinner=False)
 def get_protein(accession):
     response = requests.get(
@@ -268,9 +274,10 @@ def get_protein(accession):
                 break
 
     sequence = item.get("sequence", {}).get("value", "")
+    accession = item.get("primaryAccession", accession)
 
     return {
-        "accession": item.get("primaryAccession", accession),
+        "accession": accession,
         "name": name or "이름 정보 없음",
         "gene": gene or "정보 없음",
         "organism": item.get("organism", {}).get(
@@ -283,6 +290,9 @@ def get_protein(accession):
     }
 
 
+# =========================================================
+# 논문 검색: Europe PMC
+# =========================================================
 @st.cache_data(ttl=1800, show_spinner=False)
 def search_papers(keyword, limit=8):
     response = requests.get(
@@ -303,6 +313,7 @@ def search_papers(keyword, limit=8):
     for item in response.json().get(
         "resultList", {}
     ).get("result", []):
+
         pmid = item.get("pmid", "")
         pmcid = item.get("pmcid", "")
         doi = item.get("doi", "")
@@ -329,7 +340,7 @@ def search_papers(keyword, limit=8):
 
 
 # =========================================================
-# 번역 함수: 언어 코드 수정 + 대체 서비스
+# 한국어 번역
 # =========================================================
 def translate_to_korean(text):
     if not text or not text.strip():
@@ -343,7 +354,7 @@ def translate_to_korean(text):
     text = text.strip()[:4000]
     errors = []
 
-    # MyMemory는 지원 언어 코드 en-GB, ko-KR 사용
+    # MyMemory: 지원 언어 코드 사용
     try:
         translator = MyMemoryTranslator(
             source="en-GB",
@@ -366,7 +377,7 @@ def translate_to_korean(text):
             f"MyMemory: {type(exc).__name__}: {exc}"
         )
 
-    # Google은 MyMemory가 실패한 경우에만 요청
+    # Google 번역은 대체 서비스로 한 번 시도
     try:
         translator = GoogleTranslator(
             source="auto",
@@ -382,7 +393,9 @@ def translate_to_korean(text):
                 "error": ""
             }
 
-        errors.append("Google Translate: 번역 결과가 비어 있습니다.")
+        errors.append(
+            "Google Translate: 번역 결과가 비어 있습니다."
+        )
 
     except Exception as exc:
         errors.append(
@@ -398,7 +411,7 @@ def translate_to_korean(text):
 
 
 # =========================================================
-# 번역 버튼: 클릭했을 때만 번역 실행
+# 번역 버튼
 # =========================================================
 def translation_panel(text, key):
     if not text or text == "기능 설명 없음":
@@ -408,7 +421,7 @@ def translation_panel(text, key):
     result_key = f"translation_result_{key}"
 
     if st.button("🌐 한국어 번역", key=f"translate_button_{key}"):
-        with st.spinner("문장을 한국어로 번역하고 있습니다..."):
+        with st.spinner("한국어로 번역하고 있습니다..."):
             result = translate_to_korean(text)
 
         st.session_state[result_key] = result
@@ -423,36 +436,55 @@ def translation_panel(text, key):
         else:
             st.warning(
                 "자동 번역 서비스가 응답하지 않았어요. "
-                "잠시 후 다시 시도하거나 영어 원문을 확인해 주세요."
+                "잠시 후 다시 시도해 주세요."
             )
+
             with st.expander("번역 오류 자세히 보기"):
                 st.code(result["error"])
 
 
 # =========================================================
-# 공통 단백질 결과 표시
+# 단백질 결과 카드
+# KeyError: 'url' 수정 완료
 # =========================================================
 def protein_card(protein, key):
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
+    accession = protein.get("accession", "")
 
-    st.markdown(f"### {protein['name']}")
-    st.caption(f"UniProt accession: {protein['accession']}")
+    # 검색 결과에 url이 없어도 accession으로 주소 생성
+    protein_url = protein.get("url") or (
+        f"https://www.uniprot.org/uniprotkb/{accession}"
+    )
+
+    st.markdown(
+        '<div class="section-card">',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        f"### {protein.get('name', '이름 정보 없음')}"
+    )
+    st.caption(f"UniProt accession: {accession}")
 
     col1, col2 = st.columns(2)
-    with col1:
-        st.write(f"**유전자:** {protein['gene']}")
-        st.write(f"**생물종:** {protein['organism']}")
 
-    with col2:
-        st.write(f"**아미노산 길이:** {protein['length']}")
-        st.markdown(
-            f"[UniProt에서 자세히 보기]({protein['url']})"
+    with col1:
+        st.write(f"**유전자:** {protein.get('gene', '정보 없음')}")
+        st.write(
+            f"**생물종:** {protein.get('organism', '정보 없음')}"
         )
 
-    st.markdown("**기능 설명 원문**")
-    st.write(protein["function"])
+    with col2:
+        st.write(f"**아미노산 길이:** {protein.get('length', 0)}")
+        st.markdown(
+            f"[UniProt에서 자세히 보기]({protein_url})"
+        )
 
-    translation_panel(protein["function"], key)
+    function_text = protein.get("function", "기능 설명 없음")
+
+    st.markdown("**기능 설명 원문**")
+    st.write(function_text)
+
+    translation_panel(function_text, key)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -462,7 +494,9 @@ def protein_card(protein, key):
 # =========================================================
 def paper_search_panel(default_query="", key="papers"):
     st.markdown("### 📚 관련 논문 탐색")
-    st.caption("단백질 이름, 유전자 이름 또는 생명과학 주제로 검색하세요.")
+    st.caption(
+        "단백질 이름, 유전자 이름 또는 생명과학 주제로 검색하세요."
+    )
 
     query = st.text_input(
         "논문 검색어",
@@ -476,7 +510,9 @@ def paper_search_panel(default_query="", key="papers"):
             st.warning("검색어를 입력해 주세요.")
         else:
             try:
-                with st.spinner("Europe PMC에서 논문을 찾고 있어요..."):
+                with st.spinner(
+                    "Europe PMC에서 논문을 찾고 있어요..."
+                ):
                     papers = search_papers(query.strip())
 
                 st.session_state[f"paper_results_{key}"] = papers
@@ -496,17 +532,22 @@ def paper_search_panel(default_query="", key="papers"):
             ):
                 st.write(f"**저자:** {paper['authors']}")
                 st.write(f"**학술지:** {paper['journal']}")
-                st.markdown(f"[논문 정보 열기]({paper['url']})")
+                st.markdown(
+                    f"[논문 정보 열기]({paper['url']})"
+                )
 
                 if paper["abstract"]:
                     st.markdown("**초록 원문**")
                     st.write(paper["abstract"])
+
                     translation_panel(
                         paper["abstract"],
                         f"{key}_abstract_{i}"
                     )
                 else:
-                    st.info("이 논문에는 초록이 제공되지 않습니다.")
+                    st.info(
+                        "이 논문에는 초록이 제공되지 않습니다."
+                    )
 
 
 # =========================================================
@@ -537,7 +578,7 @@ with st.sidebar:
 
 
 # =========================================================
-# 홈
+# 홈 화면
 # =========================================================
 if page == "🏠 홈":
     st.markdown("""
@@ -573,7 +614,6 @@ if page == "🏠 홈":
 
         if st.button("단백질 검색하기", key="home_search"):
             st.session_state["navigate_to"] = "🔎 단백질 검색"
-            st.rerun()
 
     with col2:
         st.markdown("""
@@ -589,7 +629,6 @@ if page == "🏠 홈":
 
         if st.button("단백질 비교하기", key="home_compare"):
             st.session_state["navigate_to"] = "⚖️ 단백질 비교"
-            st.rerun()
 
     with col3:
         st.markdown("""
@@ -598,14 +637,18 @@ if page == "🏠 홈":
             <div class="card-title">신약 연구 탐색</div>
             <div class="card-description">
                 관심 있는 단백질 표적과 관련 논문을 검색해
-                신약 연구의 기초 정보를 살펴봅니다.
+                연구의 기초 정보를 살펴봅니다.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
         if st.button("연구 탐색하기", key="home_research"):
             st.session_state["navigate_to"] = "🧪 신약 연구 탐색"
-            st.rerun()
+
+    if "navigate_to" in st.session_state:
+        st.info(
+            f"왼쪽 메뉴에서 **{st.session_state['navigate_to']}** 을 선택해 주세요."
+        )
 
     st.markdown("---")
     st.markdown("## 연구 흐름")
@@ -631,15 +674,6 @@ if page == "🏠 홈":
         실제 약물 개발에는 추가적인 실험과 검증이 필요합니다.
     </div>
     """, unsafe_allow_html=True)
-
-
-# 홈에서 메뉴 이동
-if "navigate_to" in st.session_state:
-    destination = st.session_state.pop("navigate_to")
-    if page == "🏠 홈":
-        st.info(
-            f"왼쪽 메뉴에서 **{destination}** 을 선택해 주세요."
-        )
 
 
 # =========================================================
@@ -672,7 +706,10 @@ elif page == "🔎 단백질 검색":
         else:
             try:
                 with st.spinner("UniProt 데이터베이스 검색 중..."):
-                    results = search_proteins(keyword.strip(), limit)
+                    results = search_proteins(
+                        keyword.strip(), limit
+                    )
+
                 st.session_state["protein_search_results"] = results
 
             except Exception as exc:
@@ -698,14 +735,17 @@ elif page == "🔎 단백질 검색":
         )
 
         selected_index = labels.index(selected_label)
+        selected_protein = results[selected_index]
+
         protein_card(
-            results[selected_index],
-            f"search_protein_{results[selected_index]['accession']}"
+            selected_protein,
+            f"search_protein_{selected_protein['accession']}"
         )
 
         st.markdown("---")
+
         paper_search_panel(
-            default_query=results[selected_index]["gene"],
+            default_query=selected_protein["gene"],
             key="protein_related"
         )
 
@@ -724,21 +764,25 @@ elif page == "⚖️ 단백질 비교":
     with col1:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown("### 단백질 A")
+
         accession_a = st.text_input(
             "Accession A",
             placeholder="예: P01308",
             key="compare_accession_a"
         )
+
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
         st.markdown('<div class="section-card">', unsafe_allow_html=True)
         st.markdown("### 단백질 B")
+
         accession_b = st.text_input(
             "Accession B",
             placeholder="예: P68871",
             key="compare_accession_b"
         )
+
         st.markdown("</div>", unsafe_allow_html=True)
 
     if st.button("서열 비교 시작", key="compare_submit"):
@@ -754,7 +798,9 @@ elif page == "⚖️ 단백질 비교":
                 seq_b = protein_b["sequence"]
 
                 if not seq_a or not seq_b:
-                    st.error("하나 이상의 서열을 찾을 수 없습니다.")
+                    st.error(
+                        "하나 이상의 단백질 서열을 찾을 수 없습니다."
+                    )
                 else:
                     aligner = PairwiseAligner()
                     aligner.mode = "global"
@@ -776,8 +822,10 @@ elif page == "⚖️ 단백질 비교":
                             end_a - start_a,
                             end_b - start_b
                         )
+
                         for offset in range(segment_length):
                             aligned_length += 1
+
                             if (
                                 seq_a[start_a + offset]
                                 == seq_b[start_b + offset]
@@ -839,7 +887,10 @@ elif page == "⚖️ 단백질 비교":
             )
 
         with metric2:
-            st.metric("정렬 점수", f"{comparison['score']:.1f}")
+            st.metric(
+                "정렬 점수",
+                f"{comparison['score']:.1f}"
+            )
 
         with st.expander("아미노산 서열 확인"):
             st.markdown("**단백질 A**")
@@ -856,6 +907,7 @@ elif page == "⚖️ 단백질 비교":
         """, unsafe_allow_html=True)
 
         paper_query = f'"{a["name"]}" OR "{b["name"]}"'
+
         paper_search_panel(
             default_query=paper_query,
             key="comparison_papers"
@@ -912,15 +964,16 @@ elif page == "🧪 신약 연구 탐색":
     if target_results:
         st.markdown("### 관련 단백질")
 
-        for i, protein in enumerate(target_results):
+        for protein in target_results:
             with st.expander(
                 f"{protein['name']} · {protein['accession']}"
             ):
                 st.write(f"**유전자:** {protein['gene']}")
                 st.write(f"**생물종:** {protein['organism']}")
                 st.write(f"**기능 설명:** {protein['function']}")
+
                 st.markdown(
-                    f"[UniProt 상세 정보](https://www.uniprot.org/uniprotkb/{protein['accession']})"
+                    f"[UniProt 상세 정보]({protein['url']})"
                 )
 
                 translation_panel(
@@ -968,6 +1021,7 @@ elif page == "🧪 신약 연구 탐색":
                 if paper["abstract"]:
                     st.markdown("**초록 원문**")
                     st.write(paper["abstract"])
+
                     translation_panel(
                         paper["abstract"],
                         f"research_paper_abstract_{i}"
