@@ -531,6 +531,7 @@ def display_function(function_text):
 # =========================================================
 @st.cache_data(ttl=1800, show_spinner=False)
 def search_papers(query, limit=8):
+    """Europe PMC에서 논문을 검색합니다."""
     if not query or not query.strip():
         return []
 
@@ -555,9 +556,8 @@ def search_papers(query, limit=8):
         return []
 
     papers = []
-
     for item in data.get("resultList", {}).get("result", []):
-        title = item.get("title", "").strip()
+        title = (item.get("title") or "").strip()
         if not title:
             continue
 
@@ -581,9 +581,33 @@ def search_papers(query, limit=8):
             "year": item.get("pubYear", ""),
             "abstract": item.get("abstractText", ""),
             "url": url,
+            "paper_id": pmid or pmcid or doi or title.lower(),
         })
 
     return papers
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def search_related_papers(gene, protein_name, limit=8):
+    """유전자명과 단백질명을 각각 검색해 결과를 합치고 중복을 제거합니다."""
+    queries = []
+    for term in (gene, protein_name):
+        term = (term or "").strip()
+        if term and term.lower() not in [q.lower() for q in queries]:
+            queries.append(term)
+
+    combined = []
+    seen = set()
+    for query in queries:
+        for paper in search_papers(query, limit=limit):
+            key = paper.get("paper_id") or paper.get("title", "").strip().lower()
+            if key and key not in seen:
+                seen.add(key)
+                combined.append(paper)
+        if len(combined) >= limit:
+            break
+
+    return combined[:limit]
 
 
 def render_papers(papers):
@@ -834,21 +858,18 @@ def protein_search_page():
             # accession이 바뀌었을 때만 다시 검색하며, search_papers의 캐시를 활용합니다.
             saved = st.session_state.get("paper_results")
             if not saved or saved.get("accession") != accession:
-                search_terms = []
-                if detail.get("gene"):
-                    search_terms.append(f'"{detail["gene"]}"')
-                if detail.get("name") and detail.get("name") != detail.get("gene"):
-                    search_terms.append(f'"{detail["name"]}"')
-
-                # Europe PMC의 기본 검색에서 단백질명/유전자명이 제목·초록에
-                # 나타나는 관련 문헌을 찾도록 OR 검색어를 구성합니다.
-                paper_query = " OR ".join(search_terms)
-                if paper_query:
+                gene_name = detail.get("gene", "")
+                protein_name = detail.get("name", "")
+                if gene_name or protein_name:
                     with st.spinner(tr("loading")):
-                        papers = search_papers(paper_query, limit=8)
+                        papers = search_related_papers(
+                            gene_name,
+                            protein_name,
+                            limit=8,
+                        )
                     st.session_state["paper_results"] = {
                         "accession": accession,
-                        "query": paper_query,
+                        "query": gene_name or protein_name,
                         "papers": papers,
                     }
                 else:
