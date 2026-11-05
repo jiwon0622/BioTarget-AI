@@ -54,7 +54,7 @@ TEXT = {
         "show_sequence": "아미노산 서열 보기",
         "uniprot_link": "UniProt에서 자세히 보기",
         "papers": "관련 연구 논문",
-        "papers_desc": "선택한 단백질과 관련된 논문을 검색합니다.",
+        "papers_desc": "선택한 단백질의 이름과 유전자명을 바탕으로 관련 논문을 자동으로 표시합니다.",
         "paper_keyword": "논문 검색어",
         "paper_button": "관련 논문 검색",
         "paper_placeholder": "단백질명 또는 연구 주제",
@@ -125,7 +125,7 @@ TEXT = {
         "show_sequence": "Show Amino Acid Sequence",
         "uniprot_link": "View on UniProt",
         "papers": "Related Research Papers",
-        "papers_desc": "Search papers related to the selected protein.",
+        "papers_desc": "Related papers are displayed automatically using the selected protein and gene names.",
         "paper_keyword": "Paper search term",
         "paper_button": "Search Related Papers",
         "paper_placeholder": "Protein name or research topic",
@@ -830,30 +830,37 @@ def protein_search_page():
                 unsafe_allow_html=True,
             )
 
-            with st.form("protein_paper_form"):
-                paper_query = st.text_input(
-                    tr("paper_keyword"),
-                    value=detail.get("name", "") or detail.get("gene", ""),
-                    placeholder=tr("paper_placeholder"),
-                )
-                paper_submitted = st.form_submit_button(
-                    tr("paper_button"),
-                    use_container_width=True,
-                )
+            # 선택된 단백질의 이름과 유전자명을 조합해 관련 논문을 자동 검색합니다.
+            # accession이 바뀌었을 때만 다시 검색하며, search_papers의 캐시를 활용합니다.
+            saved = st.session_state.get("paper_results")
+            if not saved or saved.get("accession") != accession:
+                search_terms = []
+                if detail.get("gene"):
+                    search_terms.append(f'"{detail["gene"]}"')
+                if detail.get("name") and detail.get("name") != detail.get("gene"):
+                    search_terms.append(f'"{detail["name"]}"')
 
-            if paper_submitted:
-                if not paper_query.strip():
-                    st.warning(tr("empty_search"))
-                else:
+                # Europe PMC의 기본 검색에서 단백질명/유전자명이 제목·초록에
+                # 나타나는 관련 문헌을 찾도록 OR 검색어를 구성합니다.
+                paper_query = " OR ".join(search_terms)
+                if paper_query:
                     with st.spinner(tr("loading")):
-                        st.session_state["paper_results"] = {
-                            "accession": accession,
-                            "papers": search_papers(paper_query),
-                        }
+                        papers = search_papers(paper_query, limit=8)
+                    st.session_state["paper_results"] = {
+                        "accession": accession,
+                        "query": paper_query,
+                        "papers": papers,
+                    }
+                else:
+                    st.session_state["paper_results"] = {
+                        "accession": accession,
+                        "query": "",
+                        "papers": [],
+                    }
 
             saved = st.session_state.get("paper_results")
             if saved and saved.get("accession") == accession:
-                render_papers(saved["papers"])
+                render_papers(saved.get("papers", []))
 
     elif "protein_results" in st.session_state:
         st.info(tr("no_results"))
