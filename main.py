@@ -8,65 +8,61 @@ from deep_translator import GoogleTranslator, MyMemoryTranslator
 from Bio.Align import PairwiseAligner
 
 # =========================================================
-# 기본 설정
+# 설정
 # =========================================================
 st.set_page_config(
     page_title="BioTarget AI",
     page_icon="🧬",
     layout="wide",
-    initial_sidebar_state="expanded",
 )
 
 UNIPROT_API = "https://rest.uniprot.org"
 EUROPE_PMC_API = "https://www.ebi.ac.uk/europepmc/webservices/rest"
 
-
-# =========================================================
-# 다국어 UI
-# =========================================================
 TEXT = {
     "한국어": {
         "subtitle": "AI 기반 신약 후보 탐색 및 표적 단백질 분석",
-        "language": "🌐 Language / 언어",
+        "language": "🌐 언어 / Language",
+        "navigation": "메뉴",
         "home": "🏠 홈",
         "search": "🔎 단백질 검색",
         "compare": "⚖️ 단백질 비교",
         "hero_title": "생명과학 연구를 위한 단백질 탐색 플랫폼",
-        "hero_desc": "단백질 기능, 아미노산 서열, 관련 연구 논문을 한곳에서 탐색하세요.",
+        "hero_desc": "단백질 기능, 아미노산 서열, 관련 연구 논문을 탐색하세요.",
         "home_search": "단백질 탐색",
-        "home_search_desc": "단백질명이나 유전자명으로 단백질의 기능과 서열 정보를 찾아보세요.",
+        "home_search_desc": "단백질명이나 유전자명으로 기능과 서열 정보를 찾아보세요.",
         "home_compare": "단백질 비교",
-        "home_compare_desc": "두 단백질의 아미노산 서열과 서열 일치도를 비교하세요.",
+        "home_compare_desc": "두 단백질의 아미노산 서열과 일치도를 비교하세요.",
         "home_papers": "연구 논문 탐색",
-        "home_papers_desc": "관심 있는 단백질과 관련된 연구 자료를 찾아보세요.",
+        "home_papers_desc": "관심 있는 단백질과 관련된 논문을 찾아보세요.",
         "start_search": "단백질 검색하기",
         "start_compare": "단백질 비교하기",
         "search_title": "단백질 검색",
         "search_desc": "단백질명 또는 유전자명을 입력하세요.",
         "protein_input": "단백질명 또는 유전자명",
         "protein_placeholder": "예: insulin, TP53, hemoglobin",
-        "search_button": "단백질 검색",
+        "search_button": "검색",
         "search_results": "검색 결과",
-        "select_protein": "상세 정보를 확인할 단백질을 선택하세요.",
+        "select_protein": "상세 정보를 확인할 단백질 선택",
         "details": "단백질 상세 정보",
         "accession": "UniProt accession",
         "gene": "유전자명",
         "organism": "생물종",
         "length": "아미노산 길이",
         "function": "단백질 기능",
-        "no_function": "UniProt에 등록된 기능 설명이 없습니다.",
+        "no_function": "등록된 기능 설명이 없습니다.",
         "show_sequence": "아미노산 서열 보기",
         "uniprot_link": "UniProt에서 자세히 보기",
         "papers": "관련 연구 논문",
         "papers_desc": "선택한 단백질과 관련된 논문을 검색합니다.",
-        "paper_keyword": "논문 검색 키워드",
+        "paper_keyword": "논문 검색어",
         "paper_button": "관련 논문 검색",
         "paper_placeholder": "단백질명 또는 연구 주제",
         "paper_count": "검색 결과",
         "paper_open": "논문 페이지 열기",
-        "no_papers": "관련 논문을 찾지 못했습니다. 다른 검색어를 입력해 보세요.",
+        "no_papers": "논문을 찾지 못했습니다. 다른 검색어를 입력해 보세요.",
         "compare_title": "단백질 비교",
-        "compare_desc": "두 단백질을 이름으로 검색한 뒤 각각 선택하세요.",
+        "compare_desc": "두 단백질을 이름으로 검색하고 각각 선택하세요.",
         "protein_a": "첫 번째 단백질",
         "protein_b": "두 번째 단백질",
         "search_a": "첫 번째 단백질 검색어",
@@ -80,65 +76,64 @@ TEXT = {
         "identity": "서열 일치도",
         "aligned_length": "정렬된 서열 길이",
         "match_count": "일치하는 아미노산 수",
-        "compare_note": "서열 일치도는 전역 정렬에서 동일한 아미노산이 차지하는 비율입니다. 단백질의 구조적 유사성이나 기능의 동일성을 직접 의미하지는 않습니다.",
-        "same_protein": "동일한 단백질이 선택되었습니다. 서로 다른 단백질을 선택해 주세요.",
-        "translation_failed": "자동 번역에 실패하여 영어 원문을 표시합니다.",
+        "compare_note": "일치도는 전역 정렬에서 동일한 아미노산이 차지하는 비율입니다. 단백질의 구조나 기능이 동일하다는 뜻은 아닙니다.",
+        "same_protein": "동일한 단백질입니다. 서로 다른 단백질을 선택하세요.",
+        "translation_failed": "번역에 실패하여 영어 원문을 표시합니다.",
         "empty_search": "검색어를 입력해 주세요.",
-        "no_results": "검색 결과가 없습니다. 다른 이름이나 유전자명을 입력해 보세요.",
+        "no_results": "검색 결과가 없습니다. 다른 이름을 입력해 보세요.",
         "api_error": "외부 데이터 서비스에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.",
         "footer": "BioTarget AI · 교육 및 연구 탐색용 도구",
         "loading": "데이터를 불러오는 중...",
-        "no_sequence": "비교할 아미노산 서열이 충분하지 않습니다.",
+        "no_sequence": "비교할 아미노산 서열이 없습니다.",
         "paper_year": "발행 연도",
         "paper_authors": "저자",
         "paper_journal": "학술지",
         "abstract": "초록 보기",
-        "navigation": "메뉴",
         "alignment": "서열 정렬 결과 보기",
-        "alignment_note": "정렬된 두 아미노산 서열입니다.",
     },
     "English": {
         "subtitle": "AI-Assisted Drug Discovery & Target Protein Analysis",
         "language": "🌐 Language / 언어",
+        "navigation": "Navigation",
         "home": "🏠 Home",
         "search": "🔎 Protein Search",
         "compare": "⚖️ Protein Comparison",
         "hero_title": "A Protein Exploration Platform for Life Science Research",
-        "hero_desc": "Explore protein functions, amino acid sequences, and related research papers in one place.",
+        "hero_desc": "Explore protein functions, amino acid sequences, and related research papers.",
         "home_search": "Protein Exploration",
-        "home_search_desc": "Find protein functions and sequence information by protein or gene name.",
+        "home_search_desc": "Find protein functions and sequences by protein or gene name.",
         "home_compare": "Protein Comparison",
-        "home_compare_desc": "Compare amino acid sequences and sequence identity between two proteins.",
+        "home_compare_desc": "Compare amino acid sequences and sequence identity.",
         "home_papers": "Research Papers",
-        "home_papers_desc": "Explore research papers related to your protein of interest.",
+        "home_papers_desc": "Find papers related to your protein of interest.",
         "start_search": "Search Proteins",
         "start_compare": "Compare Proteins",
         "search_title": "Protein Search",
         "search_desc": "Enter a protein name or gene name.",
         "protein_input": "Protein name or gene name",
         "protein_placeholder": "e.g. insulin, TP53, hemoglobin",
-        "search_button": "Search Proteins",
+        "search_button": "Search",
         "search_results": "Search Results",
-        "select_protein": "Select a protein to view its details.",
+        "select_protein": "Select a protein to view details",
         "details": "Protein Details",
         "accession": "UniProt accession",
         "gene": "Gene",
         "organism": "Organism",
         "length": "Sequence length",
         "function": "Protein Function",
-        "no_function": "No function description is available in UniProt.",
+        "no_function": "No function description is available.",
         "show_sequence": "Show Amino Acid Sequence",
         "uniprot_link": "View on UniProt",
         "papers": "Related Research Papers",
-        "papers_desc": "Search for papers related to the selected protein.",
-        "paper_keyword": "Paper search keyword",
+        "papers_desc": "Search papers related to the selected protein.",
+        "paper_keyword": "Paper search term",
         "paper_button": "Search Related Papers",
         "paper_placeholder": "Protein name or research topic",
-        "paper_count": "Search Results",
+        "paper_count": "Results",
         "paper_open": "Open Paper",
-        "no_papers": "No related papers found. Try another search term.",
+        "no_papers": "No papers found. Try another search term.",
         "compare_title": "Protein Comparison",
-        "compare_desc": "Search by protein name and select one protein for each comparison field.",
+        "compare_desc": "Search by name and select a protein for each field.",
         "protein_a": "First Protein",
         "protein_b": "Second Protein",
         "search_a": "First protein search term",
@@ -152,46 +147,62 @@ TEXT = {
         "identity": "Sequence Identity",
         "aligned_length": "Aligned Sequence Length",
         "match_count": "Identical Amino Acids",
-        "compare_note": "Sequence identity is the proportion of identical amino acids in a global alignment. It does not directly establish structural similarity or identical biological function.",
-        "same_protein": "The same protein was selected twice. Please select two different proteins.",
-        "translation_failed": "Automatic translation failed. The original English description is shown.",
+        "compare_note": "Identity is the proportion of identical amino acids in a global alignment. It does not establish identical structure or function.",
+        "same_protein": "The same protein was selected twice. Choose different proteins.",
+        "translation_failed": "Translation failed. The original English text is shown.",
         "empty_search": "Please enter a search term.",
-        "no_results": "No results found. Try another protein or gene name.",
+        "no_results": "No results found. Try another name.",
         "api_error": "Unable to connect to the external data service. Please try again later.",
         "footer": "BioTarget AI · For educational and research exploration",
         "loading": "Loading data...",
-        "no_sequence": "There is insufficient amino acid sequence data for comparison.",
-        "paper_year": "Publication year",
+        "no_sequence": "No amino acid sequence is available for comparison.",
+        "paper_year": "Year",
         "paper_authors": "Authors",
         "paper_journal": "Journal",
         "abstract": "View abstract",
-        "navigation": "Navigation",
         "alignment": "View Sequence Alignment",
-        "alignment_note": "The two aligned amino acid sequences.",
     },
 }
 
 
 def tr(key):
-    language = st.session_state.get("language", "한국어")
-    return TEXT[language].get(key, key)
+    return TEXT[st.session_state.get("language", "한국어")].get(key, key)
 
 
 # =========================================================
-# 하늘색 연구실 디자인
+# 페이지 이동: 모든 버튼과 메뉴가 같은 상태 사용
+# =========================================================
+PAGE_KEYS = ["home", "search", "compare"]
+
+
+def go_to_page(page):
+    """홈 버튼에서 호출. 사이드바 선택 상태도 함께 변경."""
+    st.session_state["page"] = page
+    st.session_state["nav_page"] = page
+
+
+def sync_page_from_navigation():
+    """사이드바 메뉴 선택을 실제 페이지 상태에 반영."""
+    st.session_state["page"] = st.session_state["nav_page"]
+
+
+if "language" not in st.session_state:
+    st.session_state["language"] = "한국어"
+
+if "page" not in st.session_state:
+    st.session_state["page"] = "home"
+
+if "nav_page" not in st.session_state:
+    st.session_state["nav_page"] = st.session_state["page"]
+
+
+# =========================================================
+# 디자인
 # =========================================================
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
-
-    :root {
-        --sky: #55aee8;
-        --sky-dark: #247dbb;
-        --navy: #173b59;
-        --muted: #627f95;
-        --line: #d8eaf6;
-    }
 
     html, body, [class*="css"] {
         font-family: 'Inter', 'Noto Sans KR', sans-serif;
@@ -200,8 +211,8 @@ st.markdown(
     .stApp {
         background:
             radial-gradient(circle at 5% 0%, rgba(130,207,255,.16), transparent 30%),
-            linear-gradient(180deg, #f4faff 0%, #ffffff 58%, #f5faff 100%);
-        color: var(--navy);
+            linear-gradient(180deg,#f4faff 0%,#fff 58%,#f5faff 100%);
+        color: #173b59;
     }
 
     [data-testid="stHeader"] {
@@ -209,18 +220,18 @@ st.markdown(
     }
 
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg,#e8f5ff 0%,#f5faff 100%);
-        border-right: 1px solid var(--line);
+        background: linear-gradient(180deg,#e8f5ff,#f5faff);
+        border-right: 1px solid #d8eaf6;
     }
 
     [data-testid="stSidebar"] * {
-        color: var(--navy);
+        color: #173b59;
     }
 
     .hero {
-        padding: 2rem 2.1rem;
+        padding: 2rem;
         border-radius: 25px;
-        background: linear-gradient(125deg,#dff2ff 0%,#b8e1ff 52%,#edf8ff 100%);
+        background: linear-gradient(125deg,#dff2ff,#b8e1ff 52%,#edf8ff);
         border: 1px solid #c5e6fb;
         box-shadow: 0 10px 35px rgba(66,144,194,.10);
         margin-bottom: 1.5rem;
@@ -230,14 +241,14 @@ st.markdown(
         color: #287eb7;
         font-weight: 800;
         font-size: .78rem;
-        letter-spacing: .14em;
+        letter-spacing: .12em;
         margin-bottom: .6rem;
     }
 
     .hero h1 {
         color: #173b59;
         font-size: clamp(1.65rem,3vw,2.35rem);
-        line-height: 1.25;
+        line-height: 1.3;
         font-weight: 800;
         margin: 0 0 .8rem;
     }
@@ -250,18 +261,18 @@ st.markdown(
     }
 
     .info-card {
-        background: white;
+        background: #fff;
         border: 1px solid #d8eaf6;
         border-radius: 18px;
-        padding: 1.2rem 1.25rem;
-        min-height: 150px;
+        padding: 1.2rem;
+        min-height: 145px;
         box-shadow: 0 6px 22px rgba(41,111,158,.055);
         margin-bottom: .7rem;
     }
 
     .info-card h3 {
         color: #173b59;
-        font-size: 1.06rem;
+        font-size: 1.05rem;
         font-weight: 800;
         margin: 0 0 .55rem;
     }
@@ -277,8 +288,8 @@ st.markdown(
         background: #f1f9ff;
         border: 1px solid #d7ecfa;
         border-radius: 14px;
-        padding: .9rem 1rem;
-        min-height: 88px;
+        padding: .9rem;
+        min-height: 85px;
         margin-bottom: .4rem;
     }
 
@@ -290,7 +301,7 @@ st.markdown(
 
     .metric-value {
         color: #173b59;
-        font-size: 1.1rem;
+        font-size: 1.08rem;
         font-weight: 800;
         overflow-wrap: anywhere;
     }
@@ -299,14 +310,13 @@ st.markdown(
         background: white;
         border: 1px solid #d8eaf6;
         border-radius: 15px;
-        padding: 1rem 1.15rem;
+        padding: 1rem;
         margin: .65rem 0;
     }
 
     .paper-title {
         color: #176fa8;
         font-weight: 700;
-        font-size: 1rem;
         line-height: 1.55;
         margin-bottom: .45rem;
     }
@@ -314,7 +324,7 @@ st.markdown(
     .paper-meta {
         color: #627f95;
         font-size: .83rem;
-        line-height: 1.6;
+        line-height: 1.7;
     }
 
     .footer {
@@ -330,7 +340,7 @@ st.markdown(
         background: linear-gradient(135deg,#4aa8e6,#328bc9);
         color: white;
         font-weight: 700;
-        min-height: 2.65rem;
+        min-height: 2.7rem;
     }
 
     div.stButton > button:hover, div.stFormSubmitButton > button:hover {
@@ -344,10 +354,6 @@ st.markdown(
         border-radius: 13px;
         background: rgba(255,255,255,.8);
     }
-
-    hr {
-        border-color: #d8eaf6;
-    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -355,21 +361,18 @@ st.markdown(
 
 
 # =========================================================
-# UniProt 단백질 검색
+# UniProt API
 # =========================================================
 @st.cache_data(ttl=3600, show_spinner=False)
 def uniprot_search(query, limit=10):
-    query = query.strip()
-    if not query:
+    if not query or not query.strip():
         return []
 
     params = {
-        "query": query,
+        "query": query.strip(),
         "format": "json",
         "size": limit,
-        "fields": (
-            "accession,id,protein_name,gene_names,organism_name,length"
-        ),
+        "fields": "accession,id,protein_name,gene_names,organism_name,length",
     }
 
     try:
@@ -408,20 +411,14 @@ def uniprot_search(query, limit=10):
                 ).get("value", "")
 
         genes = item.get("genes", [])
-        gene_name = ""
-        if genes:
-            gene_name = genes[0].get(
-                "geneName", {}
-            ).get("value", "")
+        gene = genes[0].get("geneName", {}).get("value", "") if genes else ""
 
         results.append({
             "accession": accession,
             "id": item.get("uniProtkbId", ""),
             "name": description or item.get("uniProtkbId", accession),
-            "gene": gene_name,
-            "organism": item.get("organism", {}).get(
-                "scientificName", ""
-            ),
+            "gene": gene,
+            "organism": item.get("organism", {}).get("scientificName", ""),
             "length": item.get("sequence", {}).get("length", ""),
             "url": f"https://www.uniprot.org/uniprotkb/{accession}/entry",
         })
@@ -431,9 +428,6 @@ def uniprot_search(query, limit=10):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def uniprot_detail(accession):
-    if not accession:
-        return None
-
     try:
         response = requests.get(
             f"{UNIPROT_API}/uniprotkb/{quote(accession, safe='')}.json",
@@ -462,11 +456,7 @@ def uniprot_detail(accession):
             ).get("value", "")
 
     genes = item.get("genes", [])
-    gene_name = ""
-    if genes:
-        gene_name = genes[0].get(
-            "geneName", {}
-        ).get("value", "")
+    gene = genes[0].get("geneName", {}).get("value", "") if genes else ""
 
     functions = []
     for comment in item.get("comments", []):
@@ -482,44 +472,38 @@ def uniprot_detail(accession):
         "accession": accession,
         "id": item.get("uniProtkbId", ""),
         "name": description or item.get("uniProtkbId", accession),
-        "gene": gene_name,
-        "organism": item.get("organism", {}).get(
-            "scientificName", ""
-        ),
+        "gene": gene,
+        "organism": item.get("organism", {}).get("scientificName", ""),
         "sequence": sequence,
-        "length": item.get("sequence", {}).get(
-            "length", len(sequence)
-        ),
+        "length": item.get("sequence", {}).get("length", len(sequence)),
         "function": " ".join(functions).strip(),
         "url": f"https://www.uniprot.org/uniprotkb/{accession}/entry",
     }
 
 
 # =========================================================
-# 단백질 기능 자동 번역
+# 기능 설명 번역
 # =========================================================
 @st.cache_data(ttl=86400, show_spinner=False)
 def translate_function_to_korean(text):
-    if not text or not text.strip():
+    if not text:
         return ""
 
     try:
-        translated = GoogleTranslator(
-            source="auto",
-            target="ko",
+        result = GoogleTranslator(
+            source="auto", target="ko"
         ).translate(text[:4500])
-        if translated and translated.strip():
-            return translated.strip()
+        if result:
+            return result
     except Exception:
         pass
 
     try:
-        translated = MyMemoryTranslator(
-            source="en-GB",
-            target="ko-KR",
+        result = MyMemoryTranslator(
+            source="en-GB", target="ko-KR"
         ).translate(text[:4500])
-        if translated and translated.strip():
-            return translated.strip()
+        if result:
+            return result
     except Exception:
         pass
 
@@ -533,15 +517,13 @@ def display_function(function_text):
 
     if st.session_state["language"] == "English":
         st.write(function_text)
-        return
-
-    translated = translate_function_to_korean(function_text)
-
-    if translated == function_text:
-        st.warning(tr("translation_failed"))
-        st.write(function_text)
     else:
-        st.write(translated)
+        translated = translate_function_to_korean(function_text)
+        if translated == function_text:
+            st.warning(tr("translation_failed"))
+            st.write(function_text)
+        else:
+            st.write(translated)
 
 
 # =========================================================
@@ -590,10 +572,7 @@ def search_papers(query, limit=8):
         elif doi:
             url = f"https://doi.org/{doi}"
         else:
-            url = (
-                "https://europepmc.org/search?query="
-                + quote(query.strip())
-            )
+            url = "https://europepmc.org/search?query=" + quote(query.strip())
 
         papers.append({
             "title": title,
@@ -641,14 +620,13 @@ def render_papers(papers):
             unsafe_allow_html=True,
         )
 
-        abstract = paper.get("abstract", "")
-        if abstract:
+        if paper.get("abstract"):
             with st.expander(tr("abstract")):
-                st.write(abstract)
+                st.write(paper["abstract"])
 
 
 # =========================================================
-# 공통 UI
+# 공통 화면 요소
 # =========================================================
 def render_hero(title, description, kicker="BIOTARGET AI"):
     st.markdown(
@@ -678,53 +656,46 @@ def render_metric(label, value):
 def protein_label(protein):
     parts = [protein.get("name", "Unknown protein")]
     if protein.get("gene"):
-        parts.append(f"Gene: {protein['gene']}")
+        parts.append("Gene: " + protein["gene"])
     parts.append(protein.get("accession", ""))
-    return " · ".join(part for part in parts if part)
+    return " · ".join(x for x in parts if x)
 
 
-def render_protein_details(protein, detail=None):
-    if detail is None:
-        detail = uniprot_detail(protein.get("accession", ""))
+def render_protein_details(protein):
+    detail = uniprot_detail(protein.get("accession", ""))
 
     if not detail:
         st.error(tr("api_error"))
         return None
 
-    st.markdown(f"### {tr('details')}: {detail.get('name', '')}")
+    st.markdown(f"### {tr('details')}: {detail['name']}")
 
-    columns = st.columns(4)
+    cols = st.columns(4)
     metrics = [
-        (tr("accession"), detail.get("accession", "—")),
-        (tr("gene"), detail.get("gene", "") or "—"),
-        (tr("organism"), detail.get("organism", "") or "—"),
-        (tr("length"), detail.get("length", "—")),
+        (tr("accession"), detail["accession"]),
+        (tr("gene"), detail["gene"] or "—"),
+        (tr("organism"), detail["organism"] or "—"),
+        (tr("length"), detail["length"]),
     ]
 
-    for column, (label, value) in zip(columns, metrics):
-        with column:
+    for col, (label, value) in zip(cols, metrics):
+        with col:
             render_metric(label, value)
 
     st.markdown(f"#### 🧬 {tr('function')}")
-    display_function(detail.get("function", ""))
+    display_function(detail["function"])
 
     with st.expander(tr("show_sequence")):
-        sequence = detail.get("sequence", "")
+        sequence = detail["sequence"]
         if sequence:
             st.code(
-                "\n".join(
-                    sequence[i:i + 60]
-                    for i in range(0, len(sequence), 60)
-                ),
+                "\n".join(sequence[i:i + 60] for i in range(0, len(sequence), 60)),
                 language=None,
             )
         else:
             st.info(tr("no_sequence"))
 
-    st.markdown(
-        f"[{tr('uniprot_link')}]({detail.get('url', protein.get('url', '#'))})"
-    )
-
+    st.markdown(f"[{tr('uniprot_link')}]({detail['url']})")
     return detail
 
 
@@ -751,14 +722,13 @@ def home_page():
             unsafe_allow_html=True,
         )
 
-        # 홈 화면 버튼을 누르면 검색 페이지로 이동
-        if st.button(
+        st.button(
             tr("start_search"),
             key="home_go_search",
             use_container_width=True,
-        ):
-            st.session_state["page"] = "search"
-            st.rerun()
+            on_click=go_to_page,
+            args=("search",),
+        )
 
     with col2:
         st.markdown(
@@ -771,14 +741,13 @@ def home_page():
             unsafe_allow_html=True,
         )
 
-        # 홈 화면 버튼을 누르면 비교 페이지로 이동
-        if st.button(
+        st.button(
             tr("start_compare"),
             key="home_go_compare",
             use_container_width=True,
-        ):
-            st.session_state["page"] = "compare"
-            st.rerun()
+            on_click=go_to_page,
+            args=("compare",),
+        )
 
     st.markdown("---")
     st.markdown(f"### 📚 {tr('home_papers')}")
@@ -791,10 +760,7 @@ def home_page():
         """
         <div class="info-card">
             <h3>🔬 UniProt + Europe PMC</h3>
-            <p>
-                UniProt protein records, amino acid sequences, functional
-                annotations, and Europe PMC research articles.
-            </p>
+            <p>Protein records, amino acid sequences, functional annotations, and research articles.</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -816,11 +782,10 @@ def protein_search_page():
         "PROTEIN EXPLORER",
     )
 
-    with st.form("protein_search_form", clear_on_submit=False):
+    with st.form("protein_search_form"):
         query = st.text_input(
             tr("protein_input"),
             placeholder=tr("protein_placeholder"),
-            key="protein_query_input",
         )
         submitted = st.form_submit_button(
             tr("search_button"),
@@ -832,14 +797,11 @@ def protein_search_page():
             st.warning(tr("empty_search"))
         else:
             with st.spinner(tr("loading")):
-                results = uniprot_search(query)
+                st.session_state["protein_results"] = uniprot_search(query)
+            st.session_state["protein_query"] = query.strip()
+            st.session_state.pop("paper_results", None)
 
-            st.session_state["protein_search_results"] = results
-            st.session_state["protein_search_query"] = query.strip()
-            st.session_state.pop("protein_detail_saved", None)
-            st.session_state.pop("protein_papers_saved", None)
-
-    results = st.session_state.get("protein_search_results", [])
+    results = st.session_state.get("protein_results", [])
 
     if results:
         st.markdown(f"### {tr('search_results')} ({len(results)})")
@@ -848,30 +810,19 @@ def protein_search_page():
             tr("select_protein"),
             options=list(range(len(results))),
             format_func=lambda i: protein_label(results[i]),
-            key="protein_search_selected",
+            key="search_selected_index",
         )
 
         selected = results[selected_index]
-        accession = selected.get("accession", "")
+        accession = selected["accession"]
 
-        saved_detail = st.session_state.get("protein_detail_saved")
+        if st.session_state.get("current_detail_accession") != accession:
+            st.session_state.pop("paper_results", None)
+            st.session_state["current_detail_accession"] = accession
 
-        if not saved_detail or saved_detail.get("accession") != accession:
-            with st.spinner(tr("loading")):
-                detail = uniprot_detail(accession)
-
-            if detail:
-                st.session_state["protein_detail_saved"] = detail
-                st.session_state.pop("protein_papers_saved", None)
-            else:
-                st.error(tr("api_error"))
-                detail = None
-        else:
-            detail = saved_detail
+        detail = render_protein_details(selected)
 
         if detail:
-            render_protein_details(selected, detail)
-
             st.markdown("---")
             st.markdown(f"### 📚 {tr('papers')}")
             st.markdown(
@@ -879,18 +830,11 @@ def protein_search_page():
                 unsafe_allow_html=True,
             )
 
-            default_query = (
-                detail.get("name", "")
-                or detail.get("gene", "")
-                or accession
-            )
-
             with st.form("protein_paper_form"):
                 paper_query = st.text_input(
                     tr("paper_keyword"),
-                    value=default_query,
+                    value=detail.get("name", "") or detail.get("gene", ""),
                     placeholder=tr("paper_placeholder"),
-                    key="protein_paper_query",
                 )
                 paper_submitted = st.form_submit_button(
                     tr("paper_button"),
@@ -902,20 +846,16 @@ def protein_search_page():
                     st.warning(tr("empty_search"))
                 else:
                     with st.spinner(tr("loading")):
-                        papers = search_papers(paper_query)
+                        st.session_state["paper_results"] = {
+                            "accession": accession,
+                            "papers": search_papers(paper_query),
+                        }
 
-                    st.session_state["protein_papers_saved"] = {
-                        "query": paper_query.strip(),
-                        "papers": papers,
-                        "accession": accession,
-                    }
+            saved = st.session_state.get("paper_results")
+            if saved and saved.get("accession") == accession:
+                render_papers(saved["papers"])
 
-            saved_papers = st.session_state.get("protein_papers_saved")
-
-            if saved_papers and saved_papers.get("accession") == accession:
-                render_papers(saved_papers.get("papers", []))
-
-    elif "protein_search_results" in st.session_state:
+    elif "protein_results" in st.session_state:
         st.info(tr("no_results"))
 
     st.markdown(
@@ -925,7 +865,7 @@ def protein_search_page():
 
 
 # =========================================================
-# 서열 일치도 계산
+# 서열 정렬 및 일치도
 # =========================================================
 def calculate_sequence_identity(seq_a, seq_b):
     seq_a = re.sub(r"\s+", "", seq_a or "").upper()
@@ -947,7 +887,7 @@ def calculate_sequence_identity(seq_a, seq_b):
         aligned_b = str(alignment[1])
 
         columns = min(len(aligned_a), len(aligned_b))
-        if columns == 0:
+        if not columns:
             return None
 
         matches = sum(
@@ -969,18 +909,16 @@ def calculate_sequence_identity(seq_a, seq_b):
 # =========================================================
 # 단백질 비교 화면
 # =========================================================
-def search_comparison_proteins(query, state_key):
+def search_comparison_proteins(query, key):
     if not query.strip():
         st.warning(tr("empty_search"))
-        st.session_state[state_key] = []
+        st.session_state[key] = []
         return
 
     with st.spinner(tr("loading")):
-        results = uniprot_search(query)
+        st.session_state[key] = uniprot_search(query)
 
-    st.session_state[state_key] = results
-
-    if not results:
+    if not st.session_state[key]:
         st.info(tr("no_results"))
 
 
@@ -991,25 +929,20 @@ def render_comparison_protein(title, detail):
         st.error(tr("api_error"))
         return
 
-    columns = st.columns(2)
-
-    with columns[0]:
-        render_metric(tr("accession"), detail.get("accession", "—"))
-
-    with columns[1]:
-        render_metric(tr("length"), detail.get("length", "—"))
+    cols = st.columns(2)
+    with cols[0]:
+        render_metric(tr("accession"), detail["accession"])
+    with cols[1]:
+        render_metric(tr("length"), detail["length"])
 
     st.markdown(f"**{tr('function')}**")
-    display_function(detail.get("function", ""))
+    display_function(detail["function"])
 
     with st.expander(tr("show_sequence")):
-        sequence = detail.get("sequence", "")
+        sequence = detail["sequence"]
         if sequence:
             st.code(
-                "\n".join(
-                    sequence[i:i + 60]
-                    for i in range(0, len(sequence), 60)
-                ),
+                "\n".join(sequence[i:i + 60] for i in range(0, len(sequence), 60)),
                 language=None,
             )
         else:
@@ -1027,163 +960,104 @@ def protein_comparison_page():
 
     with col_a:
         st.markdown(f"### 🧬 {tr('protein_a')}")
-
         with st.form("compare_form_a"):
             query_a = st.text_input(
                 tr("search_a"),
                 placeholder=tr("protein_placeholder"),
-                key="compare_query_a",
             )
-            submitted_a = st.form_submit_button(
+            submit_a = st.form_submit_button(
                 tr("find_a"),
                 use_container_width=True,
             )
-
-        if submitted_a:
-            search_comparison_proteins(
-                query_a,
-                "compare_results_a",
-            )
+        if submit_a:
+            search_comparison_proteins(query_a, "compare_results_a")
 
     with col_b:
         st.markdown(f"### 🧬 {tr('protein_b')}")
-
         with st.form("compare_form_b"):
             query_b = st.text_input(
                 tr("search_b"),
                 placeholder=tr("protein_placeholder"),
-                key="compare_query_b",
             )
-            submitted_b = st.form_submit_button(
+            submit_b = st.form_submit_button(
                 tr("find_b"),
                 use_container_width=True,
             )
-
-        if submitted_b:
-            search_comparison_proteins(
-                query_b,
-                "compare_results_b",
-            )
+        if submit_b:
+            search_comparison_proteins(query_b, "compare_results_b")
 
     results_a = st.session_state.get("compare_results_a", [])
     results_b = st.session_state.get("compare_results_b", [])
 
     st.markdown("---")
 
-    select_col_a, select_col_b = st.columns(2, gap="large")
-    selected_a = None
-    selected_b = None
+    select_a, select_b = st.columns(2, gap="large")
+    protein_a = None
+    protein_b = None
 
-    with select_col_a:
+    with select_a:
         if results_a:
-            index_a = st.selectbox(
+            idx_a = st.selectbox(
                 tr("choose_a"),
                 options=list(range(len(results_a))),
                 format_func=lambda i: protein_label(results_a[i]),
-                key="compare_selected_a",
+                key="comparison_choice_a",
             )
-            selected_a = results_a[index_a]
+            protein_a = results_a[idx_a]
 
-    with select_col_b:
+    with select_b:
         if results_b:
-            index_b = st.selectbox(
+            idx_b = st.selectbox(
                 tr("choose_b"),
                 options=list(range(len(results_b))),
                 format_func=lambda i: protein_label(results_b[i]),
-                key="compare_selected_b",
+                key="comparison_choice_b",
             )
-            selected_b = results_b[index_b]
+            protein_b = results_b[idx_b]
 
-    if selected_a and selected_b:
-        if st.button(
+    if protein_a and protein_b:
+        st.button(
             tr("run_compare"),
-            key="run_protein_comparison",
+            key="execute_comparison",
             use_container_width=True,
-        ):
-            accession_a = selected_a.get("accession", "")
-            accession_b = selected_b.get("accession", "")
+            on_click=run_comparison_callback,
+            args=(protein_a["accession"], protein_b["accession"]),
+        )
 
-            if accession_a == accession_b:
-                st.warning(tr("same_protein"))
-            else:
-                with st.spinner(tr("loading")):
-                    detail_a = uniprot_detail(accession_a)
-                    detail_b = uniprot_detail(accession_b)
+    result = st.session_state.get("comparison_result")
 
-                if not detail_a or not detail_b:
-                    st.error(tr("api_error"))
-                else:
-                    alignment = calculate_sequence_identity(
-                        detail_a.get("sequence", ""),
-                        detail_b.get("sequence", ""),
-                    )
-
-                    if not alignment:
-                        st.warning(tr("no_sequence"))
-                    else:
-                        st.session_state["comparison_result"] = {
-                            "detail_a": detail_a,
-                            "detail_b": detail_b,
-                            "alignment": alignment,
-                        }
-
-    saved = st.session_state.get("comparison_result")
-
-    if saved:
-        detail_a = saved["detail_a"]
-        detail_b = saved["detail_b"]
-        alignment = saved["alignment"]
+    if result:
+        detail_a = result["detail_a"]
+        detail_b = result["detail_b"]
+        alignment = result["alignment"]
 
         st.markdown("---")
         st.markdown(f"## {tr('compare_result')}")
 
-        metric1, metric2, metric3 = st.columns(3)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            render_metric(tr("identity"), f"{alignment['identity']:.2f}%")
+        with c2:
+            render_metric(tr("match_count"), alignment["matches"])
+        with c3:
+            render_metric(tr("aligned_length"), alignment["columns"])
 
-        with metric1:
-            render_metric(
-                tr("identity"),
-                f"{alignment['identity']:.2f}%",
-            )
-
-        with metric2:
-            render_metric(
-                tr("match_count"),
-                alignment["matches"],
-            )
-
-        with metric3:
-            render_metric(
-                tr("aligned_length"),
-                alignment["columns"],
-            )
-
-        st.progress(
-            min(max(alignment["identity"] / 100, 0.0), 1.0)
-        )
-
+        st.progress(min(max(alignment["identity"] / 100, 0), 1))
         st.info(tr("compare_note"))
 
-        st.markdown("---")
-        detail_col_a, detail_col_b = st.columns(2, gap="large")
-
-        with detail_col_a:
+        left, right = st.columns(2, gap="large")
+        with left:
             render_comparison_protein(tr("protein_a"), detail_a)
-
-        with detail_col_b:
+        with right:
             render_comparison_protein(tr("protein_b"), detail_b)
 
         with st.expander(tr("alignment")):
-            st.caption(tr("alignment_note"))
-
-            aligned_a = alignment["aligned_a"]
-            aligned_b = alignment["aligned_b"]
             width = 60
-
-            for start in range(0, len(aligned_a), width):
+            for start in range(0, len(alignment["aligned_a"]), width):
                 end = start + width
                 st.code(
-                    f"A: {aligned_a[start:end]}\n"
-                    f"B: {aligned_b[start:end]}",
+                    f"A: {alignment['aligned_a'][start:end]}\n"
+                    f"B: {alignment['aligned_b'][start:end]}",
                     language=None,
                 )
 
@@ -1193,27 +1067,44 @@ def protein_comparison_page():
     )
 
 
-# =========================================================
-# 세션 상태 초기화
-# =========================================================
-if "language" not in st.session_state:
-    st.session_state["language"] = "한국어"
+def run_comparison_callback(accession_a, accession_b):
+    if accession_a == accession_b:
+        st.session_state["comparison_error"] = "same"
+        return
 
-if "page" not in st.session_state:
-    st.session_state["page"] = "home"
+    detail_a = uniprot_detail(accession_a)
+    detail_b = uniprot_detail(accession_b)
+
+    if not detail_a or not detail_b:
+        st.session_state["comparison_error"] = "api"
+        return
+
+    alignment = calculate_sequence_identity(
+        detail_a["sequence"],
+        detail_b["sequence"],
+    )
+
+    if not alignment:
+        st.session_state["comparison_error"] = "sequence"
+        return
+
+    st.session_state["comparison_result"] = {
+        "detail_a": detail_a,
+        "detail_b": detail_b,
+        "alignment": alignment,
+    }
+    st.session_state.pop("comparison_error", None)
 
 
 # =========================================================
-# 사이드바: 언어 전환 및 페이지 이동
+# 사이드바
 # =========================================================
 with st.sidebar:
     st.markdown(
         """
         <div style="padding:.6rem 0 1rem">
             <div style="font-size:2rem">🧬</div>
-            <div style="font-size:1.45rem;font-weight:800;color:#173b59">
-                BioTarget AI
-            </div>
+            <div style="font-size:1.45rem;font-weight:800">BioTarget AI</div>
             <div style="font-size:.78rem;color:#627f95">
                 Protein Research Platform
             </div>
@@ -1238,47 +1129,42 @@ with st.sidebar:
 
     st.markdown("---")
 
-    page_keys = ["home", "search", "compare"]
-    page_labels = [
-        tr("home"),
-        tr("search"),
-        tr("compare"),
-    ]
-
-    current_page = st.session_state.get("page", "home")
-    current_index = (
-        page_keys.index(current_page)
-        if current_page in page_keys
-        else 0
-    )
-
-    selected_label = st.radio(
+    # 라디오 위젯의 실제 값이 페이지 상태의 기준이 됨.
+    # 홈 버튼도 nav_page를 변경하므로 두 이동 방식이 동기화됨.
+    st.radio(
         tr("navigation"),
-        options=page_labels,
-        index=current_index,
-        key=f"page_selector_{st.session_state['language']}",
+        options=PAGE_KEYS,
+        format_func=lambda key: tr(key),
+        key="nav_page",
+        on_change=sync_page_from_navigation,
     )
-
-    selected_index = page_labels.index(selected_label)
-    selected_page = page_keys[selected_index]
-
-    if selected_page != st.session_state["page"]:
-        st.session_state["page"] = selected_page
-        st.rerun()
 
     st.markdown("---")
     st.caption(tr("subtitle"))
 
 
 # =========================================================
-# 페이지 라우팅
-# 홈 버튼과 사이드바 메뉴가 동일한 페이지 상태를 사용함
+# 현재 페이지 표시
 # =========================================================
-if st.session_state["page"] == "home":
+# nav_page와 page를 매번 동기화해 화면이 이전 페이지로 돌아가는
+# 문제를 방지함.
+if st.session_state["page"] != st.session_state["nav_page"]:
+    st.session_state["page"] = st.session_state["nav_page"]
+
+current_page = st.session_state["page"]
+
+if current_page == "home":
     home_page()
-
-elif st.session_state["page"] == "search":
+elif current_page == "search":
     protein_search_page()
-
-elif st.session_state["page"] == "compare":
+elif current_page == "compare":
     protein_comparison_page()
+
+# 비교 오류 메시지 표시
+comparison_error = st.session_state.get("comparison_error")
+if comparison_error == "same":
+    st.warning(tr("same_protein"))
+elif comparison_error == "api":
+    st.error(tr("api_error"))
+elif comparison_error == "sequence":
+    st.warning(tr("no_sequence"))
