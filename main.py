@@ -531,23 +531,25 @@ def display_function(function_text):
 # =========================================================
 @st.cache_data(ttl=1800, show_spinner=False)
 def search_papers(query, limit=8):
-    """Europe PMC에서 논문을 검색합니다."""
-    if not query or not query.strip():
+    """Europe PMC의 일반 검색창과 같은 방식으로 단순 검색어를 전달합니다."""
+    query = (query or "").strip()
+    if not query:
         return []
 
+    # 필드 지정, 따옴표, AND/OR 등을 임의로 덧붙이지 않습니다.
+    # sort를 지정하지 않아 Europe PMC의 기본 관련도 순서를 사용합니다.
     params = {
-        "query": query.strip(),
+        "query": query,
         "format": "json",
-        "pageSize": limit,
+        "pageSize": max(1, min(int(limit), 25)),
         "resultType": "core",
-        "sort": "RELEVANCE",
     }
 
     try:
         response = requests.get(
             f"{EUROPE_PMC_API}/search",
             params=params,
-            timeout=25,
+            timeout=30,
             headers={"User-Agent": "BioTargetAI/1.0"},
         )
         response.raise_for_status()
@@ -555,15 +557,16 @@ def search_papers(query, limit=8):
     except (requests.RequestException, ValueError):
         return []
 
+    result_list = data.get("resultList", {}).get("result", [])
     papers = []
-    for item in data.get("resultList", {}).get("result", []):
+    for item in result_list:
         title = (item.get("title") or "").strip()
         if not title:
             continue
 
-        pmcid = item.get("pmcid", "")
-        pmid = item.get("pmid", "")
-        doi = item.get("doi", "")
+        pmcid = (item.get("pmcid") or "").strip()
+        pmid = (item.get("pmid") or "").strip()
+        doi = (item.get("doi") or "").strip()
 
         if pmcid:
             url = f"https://europepmc.org/articles/{pmcid}"
@@ -572,14 +575,23 @@ def search_papers(query, limit=8):
         elif doi:
             url = f"https://doi.org/{doi}"
         else:
-            url = "https://europepmc.org/search?query=" + quote(query.strip())
+            url = "https://europepmc.org/search?query=" + quote(query, safe="")
+
+        journal = item.get("journalTitle", "") or ""
+        # core 응답에서는 journalTitle 대신 journalInfo 안에 저널명이 들어올 수도 있습니다.
+        if not journal:
+            journal = (
+                item.get("journalInfo", {})
+                .get("journal", {})
+                .get("title", "")
+            )
 
         papers.append({
             "title": title,
-            "authors": item.get("authorString", ""),
-            "journal": item.get("journalTitle", ""),
-            "year": item.get("pubYear", ""),
-            "abstract": item.get("abstractText", ""),
+            "authors": item.get("authorString", "") or "",
+            "journal": journal,
+            "year": item.get("pubYear", "") or "",
+            "abstract": item.get("abstractText", "") or "",
             "url": url,
             "paper_id": pmid or pmcid or doi or title.lower(),
         })
